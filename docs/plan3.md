@@ -1,0 +1,21 @@
+- [X] (Prio 5) clicking on a picture in md makes them grow big
+- [X] (Prio 1) file management of uploaded pictures/files to markdown editor (remove/rename)
+- [X] (Prio 5) picture options (align (center/left/right), width/height)
+- [X] (Prio 3) rounded corners in indented code blocks on the left edge
+- [X] bug: on tables sometimes the tab movement skips one cell (cell i) and the cursor lands in front of the content of cell i+1 and at the next tab in the back of content of cell i+1 (in the M5 Test file its the cell "1" and cell "a" so "b" and "2" are the respective i+1 cells)
+- [X] (Prio 1) shortcut to create a new column in tables to the right of the current cell (or hover at the right edge of the table to reveal a button with a plus)
+- [X] (Prio 3) collapsable headings/lists in Markdown Editor
+- [X] (Prio 2) advanced hotkeys to move bullet points in lists (switch with above with below, remove one tab indent) (see https://github.com/vslinko/obsidian-outliner)
+- [X] (Prio 1) on the projects overview a section of links that can be pinned
+- [X] (Prio 1) tasks (and their title) on the background in week view are overlapping, they should be added to a column layout themselves (only the tasks in the background -> so three tasks -> three columns, one for each task)
+- [X] (Prio 1) going from week view to month view hides the tasks in months view. but anyway they are cluttering the space there too. maybe the tasks should be moved to a seperate sidebar that shows the current tasks and when they are due. in the week view they should still be visible/toggable like described above. in the monthsview at least the deadlines should be visible inside the calender.
+- [X] (Prio 1) Tentative events (muted or shaded background)
+- [X] (Prio 1) Task toggle and unscheduled task pane isn't saved when switching tab (notes, tasks, project etc)
+- [X] (Prio 5) Archive Projects
+- [X] (Prio 2) Project Groups (Just to organize projects in the sidebar)
+- [X] (Prio 1) option to not delete events that are in the past (global or per event/rrule/external source)
+- [X] (Prio 4) link events together or add multiple rrules to one event (e.g. event at 10-11am on monday and friday but also on wednesday but at a dfiferent time)
+- [X] (Prio 3) inline math mode preview in markdown editor with popup below
+- [X] (Prio 1) Bug: when doing a whitespace after a bullet point the bulletpoint gets shifted to the left
+- [X] (Prio 1) Bug: when selecting, the selection mark spans over the left padding/border/spacing of the document
+- [X] (Prio 1) how to exit the focus mode? (On ipad device)

@@ -1,0 +1,48 @@
+- Calender
+  - Sync with calDav/ics
+    - read-only
+    - hourly refresh (or explicit refresh)
+  - (colored) categories
+  - tags
+  - easy drag and drop
+  - easy event creation (mouse down and drag; min 15 min; 15 min steps)
+  - day, week, month views
+  - recurring events
+  - event editing / deletion
+- Tasks (visible in calendar view) everything optional
+  - status
+  - priority
+  - creation date
+  - start/end date
+  - deadline
+  - estimated duration/effort
+  - recurring tasks
+  - subtasks
+  - reminders
+  - tasks can be dragged onto the calendar to (re-)schedule them
+  - tasks without end date, deadline, priority, status or reminders get inserted into an inbox tab to be reviewed later (or not)
+- Notes
+  - Daily Notes (generated only explicitly)
+  - Notes for projects
+  - Two modes (Markdown, Canvas)
+    - Markdown mode easily switchiable to canvas mode
+    - Canvas mode:
+      - like excalidraw
+      - embeddable attachments (multipage pdfs, images, ...)
+      - embedable notes/markdowns appear in a rectangle with solid background
+      - also freeflow text, rectangles, arrows etc.
+  - searchable
+  - links to other notes, tasks, calender events, projects
+  - autosave
+- Projects
+  can contain (nested) folders for notes, notes, tasks, calender events
+  global filter to focus on a project
+- Misc
+  - desktop primary (no mobile layout for now)
+  - some accessible and easy keyboard shortcuts
+  - undo/redo buttons
+  - global search (indexed note text, events, projects, categories, tags)
+  - global focus mode
+  - pomodoro timer (gets tracked into a statistic)
+  - backend data storage or optionally external webdav storage
+  - single user application at first

@@ -1,0 +1,35 @@
+services:
+  planner:
+    build:
+      context: .
+      args:
+        # optional modules: all, or e.g. calendar,tasks,notes (calendar, tasks, mail, triage, notes,
+        # cards, canvas, pomodoro; triage needs mail, cards/canvas need notes). Rebuild to change.
+        MODULES: all
+    container_name: planner
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin # used for nightly backups and floating times in ICS feeds
+      REQUIRE_AUTH_HEADER: 'true' # reject requests that did not pass Authelia (no Remote-User header)
+      # Events and tasks in a CalDAV calendar (README: "Events and tasks on a CalDAV server"):
+      # CALDAV_URL: http://radicale:5232/alex/planner/ # one calendar collection, VEVENT + VTODO
+      # CALDAV_USER: alex
+      # CALDAV_PASSWORD: change-me
+    volumes:
+      - ./data:/data # planner.db, uploaded files, backups/ (must be writable by uid 1000)
+    networks: [proxy]
+    # no published ports: only Nginx Proxy Manager can reach the app
+
+  # Example CalDAV server for the planner's events and tasks. Create the user and the calendar in
+  # its web UI (publish it through the proxy for that, and for your other calendar apps).
+  # radicale:
+  #   image: tomsquest/docker-radicale
+  #   container_name: radicale
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./radicale:/data
+  #   networks: [proxy]
+
+networks:
+  proxy:
+    external: true # the Docker network Nginx Proxy Manager (and Authelia) are attached to

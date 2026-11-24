@@ -1,0 +1,8 @@
+- Uncategorised events stay neutral but should have a opaque background so the calender lines aren't visible
+- dragging nodes makes them giganteous during the drag
+- i don't like the md editor, can the size of it be reduced, so the text size and the size of the gui, as well as a dark theme?
+- inside of excalidraw, would i be possible to still write into the markdown nodes? And would it be possible to have the pdfs as one object with settings like two page layout starting evan/uneving, os some layout scaling options etc.
+- on the calender when an event may be created it must be saved before it really is created so that when the dialog is discarded the event is not created (but a confirmation dialog should pop up)
+- in general use more custom dialogs than relying on the browsers or systems dialog (e.g. color picker, folder creation etc.)
+- the file tree in notes tab should be more filetree like so not the two buttons at the end but a plus at the top etc.
+- on a project focus, each external calender should have the option to show always or only to (multiple) specific projects the default is showing only in "All projects" so when no project is selected in focus.

@@ -1,0 +1,9 @@
+.git
+node_modules
+build
+data
+.svelte-kit
+static/fonts
+.env*
+screenshots
+docs

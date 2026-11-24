@@ -1,0 +1,17 @@
+- custom live-preview markdown editor on CodeMirror 6 (`src/lib/editor/`), built in milestones:
+  - [x] M0 scaffold: source editing with styled syntax, autosave, Ctrl+L, Ctrl+click; Milkdown kept behind "Classic editor" (note "…" menu)
+  - [x] M1 inline live preview: syntax hidden away from the cursor (headings, bold/italic/strike, code, links, quotes, hr, escapes), Ctrl+B/I/E, wrap selection by typing `* _ ~`, paired brackets/backticks, Ctrl+L uses the selection as link text
+  - [x] M2 lists and tasks: bullets, clickable checkboxes (done tasks struck through), hanging indent by nesting depth, Tab/Shift+Tab move an item with everything below it and renumber ordered lists
+  - [x] M3 code blocks (highlighting in muted colours, languages loaded on demand, fences hidden away from the cursor, Enter closes a new fence), images shown in place, pasted/dropped files uploaded (images embedded, other files linked)
+  - [x] M4 Typst math: `$…$` in a line of text, `$$…$$` on its own row (also over several lines), drawn by Typst; the markdown shows while the cursor is in it, with the formula of a `$$` kept below
+  - [x] M5 tables: shown as tables and edited in place (cells are ordinary text; Tab/Shift+Tab, Enter = new row, Enter in an empty last row leaves, Backspace in an empty row removes it), `| a | b |` + Enter starts one, right-click menu for rows / columns / alignment / delete
+  - [x] M6 cleanup: remove Milkdown, the switch and the Crepe CSS; MIGRATIONS.md entry
+- [x] custom icons for projects (lucide icon picker on the project page)
+- [x] scrolling through the months (in monthview): endless vertical month scroll
+- [x] bigger hitbox of day (for dayview) when in monthview: whole top strip of a day cell
+- [x] bug: disabling calender does not remove the events from the calender view
+- [x] bug: downloading backup file does not work (could not reproduce locally; now fetch-based with error toast)
+- [x] tasks spamming the calendar: done tasks hidden, "Tasks" toggle, capped all-day rows with "+N more"
+- [x] anki like cards (good/again, typst math): flashcard decks in the notes tree + Review page
+- [x] ability to upload/add other files to projects filetree
+- [x] better color picker

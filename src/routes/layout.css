@@ -1,0 +1,483 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/inter';
+
+@custom-variant dark (&:is(.dark *));
+@plugin '@tailwindcss/typography';
+
+/* Palette of the "Planner UI Redesign" canvas: neutral greys only, as drawn there.
+   --panel = sidebar / today column, --ev = event fill, --line2 = control borders,
+   --ground = what lies behind floating panels in the mockups. */
+:root {
+	--background: #ffffff;
+	--foreground: #171717;
+	--card: #ffffff;
+	--card-foreground: #171717;
+	--popover: #ffffff;
+	--popover-foreground: #171717;
+	--primary: #171717;
+	--primary-foreground: #ffffff;
+	--secondary: #f0f0f0;
+	--secondary-foreground: #171717;
+	--muted: #f0f0f0;
+	--muted-foreground: #636363;
+	--accent: #f0f0f0;
+	--accent-foreground: #171717;
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: #ebebeb;
+	--input: #d4d4d4;
+	--ring: #a3a3a3;
+	--panel: #fafafa;
+	--ev: #f1f1f1;
+	--line2: #d4d4d4;
+	--panel-shadow: 0 14px 44px rgb(0 0 0 / 0.2), 0 2px 6px rgb(0 0 0 / 0.08);
+	--lift-shadow: 0 10px 28px rgb(0 0 0 / 0.2);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--radius: 0.5rem;
+	--sidebar: #fafafa;
+	--sidebar-foreground: #171717;
+	--sidebar-primary: #171717;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #f0f0f0;
+	--sidebar-accent-foreground: #171717;
+	--sidebar-border: #ebebeb;
+	--sidebar-ring: #a3a3a3;
+}
+
+.dark {
+	--background: #111111;
+	--foreground: #ededed;
+	--card: #161616;
+	--card-foreground: #ededed;
+	--popover: #161616;
+	--popover-foreground: #ededed;
+	--primary: #ededed;
+	--primary-foreground: #111111;
+	--secondary: #222222;
+	--secondary-foreground: #ededed;
+	--muted: #222222;
+	--muted-foreground: #a3a3a3;
+	--accent: #222222;
+	--accent-foreground: #ededed;
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: #262626;
+	--input: #3d3d3d;
+	--ring: #636363;
+	--panel: #161616;
+	--ev: #262626;
+	--line2: #3d3d3d;
+	--panel-shadow: 0 14px 44px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.5);
+	--lift-shadow: 0 10px 28px rgb(0 0 0 / 0.7);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--sidebar: #161616;
+	--sidebar-foreground: #ededed;
+	--sidebar-primary: #ededed;
+	--sidebar-primary-foreground: #111111;
+	--sidebar-accent: #222222;
+	--sidebar-accent-foreground: #ededed;
+	--sidebar-border: #262626;
+	--sidebar-ring: #636363;
+}
+
+@theme inline {
+	--font-sans: 'Inter Variable', sans-serif;
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-chart-5: var(--chart-5);
+	--color-chart-4: var(--chart-4);
+	--color-chart-3: var(--chart-3);
+	--color-chart-2: var(--chart-2);
+	--color-chart-1: var(--chart-1);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--color-panel: var(--panel);
+	--color-ev: var(--ev);
+	--color-line2: var(--line2);
+	--shadow-panel: var(--panel-shadow);
+	--shadow-lift: var(--lift-shadow);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+	html {
+		@apply font-sans;
+	}
+}
+
+/* ---- FullCalendar (forma theme) mapped onto the monochrome shadcn tokens ---- */
+:root {
+	--fc-forma-primary: var(--primary);
+	--fc-forma-primary-over: color-mix(in oklch, var(--primary) 88%, var(--background));
+	--fc-forma-primary-down: color-mix(in oklch, var(--primary) 76%, var(--background));
+	--fc-forma-primary-foreground: var(--primary-foreground);
+	--fc-forma-event: var(
+		--foreground
+	); /* neutral by default; categories/feeds set their own colour */
+	--fc-forma-event-contrast: var(--foreground);
+	--fc-forma-background-event: var(--muted);
+	--fc-forma-highlight: color-mix(in oklch, var(--foreground) 8%, transparent);
+	--fc-forma-background: var(--background);
+	--fc-forma-faint: color-mix(in oklch, var(--foreground) 3%, transparent);
+	--fc-forma-muted: color-mix(in oklch, var(--foreground) 6%, transparent);
+	--fc-forma-strong: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--fc-forma-stronger: color-mix(in oklch, var(--foreground) 14%, transparent);
+	--fc-forma-strongest: color-mix(in oklch, var(--foreground) 18%, transparent);
+	--fc-forma-foreground: var(--foreground);
+	--fc-forma-faint-foreground: color-mix(in oklch, var(--muted-foreground) 70%, var(--background));
+	--fc-forma-muted-foreground: var(--muted-foreground);
+	--fc-forma-border: var(--border);
+	--fc-forma-muted-border: var(--border);
+	--fc-forma-strong-border: var(--ring);
+	--fc-forma-ring-color: var(--ring);
+}
+
+/* ---- Calendar entries (`entryContent` / `entryClass` in Calendar.svelte) ----
+   An event is a grey block whose colour is only a small mark: dot (own), ring (external feed),
+   rounded square (task), flag (deadline). No opacity: fills stay opaque over the grid lines. */
+.cal {
+	font-size: 13px;
+	line-height: 1.35;
+}
+.ev .ev-line {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	white-space: nowrap;
+	font-weight: 500;
+}
+.ev .ev-tt {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ev .ev-time {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--muted-foreground);
+	font-size: 11.5px;
+	font-weight: 400;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.ev .ev-mark {
+	flex: none;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--fc-event-color);
+}
+.ev-feed .ev-mark {
+	box-sizing: border-box;
+	background: none;
+	border: 1.5px solid var(--fc-event-color);
+}
+.ev-task .ev-mark {
+	box-sizing: border-box;
+	width: 9px;
+	height: 9px;
+	border-radius: 3px;
+	background: none;
+	border: 1.5px solid var(--fc-event-color);
+}
+.ev-task.ev-nc .ev-mark {
+	border-color: var(--muted-foreground);
+}
+.ev :is(.ev-flag, .ev-rep) {
+	flex: none;
+	width: 13px;
+	height: 13px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.75;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.ev .ev-rep {
+	width: 11px;
+	height: 11px;
+}
+.ev-deadline .ev-flag {
+	color: var(--fc-event-color);
+}
+.ev-deadline.ev-nc .ev-flag {
+	color: var(--muted-foreground);
+}
+/* the block: grey fill, no stripe (forma tints it and draws a 6px border in the colour) */
+.cal .ev:is(.ev-event, .ev-draft, .ev-feed, .ev-task, .ev-deadline):not(.task-bg) {
+	border: 0 !important;
+	border-radius: 6px !important;
+	background: var(--ev) !important;
+	color: var(--foreground) !important;
+	box-shadow: none;
+}
+.cal .ev:not(.task-bg) > div:not(:empty) {
+	padding: 4px 8px;
+}
+/* month view: timed entries are list items, a plain line (forma's own dot is the empty first div) */
+.cal .ev > div:first-child:empty {
+	display: none;
+}
+.cal .ev.ev:has(> div:first-child:empty) {
+	background: transparent !important;
+}
+.cal .ev:has(> div:first-child:empty) > div:not(:empty) {
+	padding: 2px 6px;
+}
+.cal .ev:has(> div:first-child:empty):hover {
+	background: var(--muted) !important;
+}
+.cal .dh-m {
+	color: var(--muted-foreground);
+	font-size: 11.5px;
+	font-weight: 400;
+}
+.cal [role='table'][data-date] > div[id] > div {
+	font-size: 13px;
+	font-weight: 600;
+}
+.cal .ev.ev-feed:not(.task-bg) {
+	background: var(--background) !important;
+	box-shadow: inset 0 0 0 1px var(--line2);
+}
+.cal .ev.ev-event.tentative:not(.task-bg) {
+	background: repeating-linear-gradient(
+		135deg,
+		var(--ev) 0 5px,
+		var(--background) 5px 10px
+	) !important;
+	box-shadow: inset 0 0 0 1px var(--line2);
+	outline: 1px dashed var(--line2);
+	outline-offset: -1px;
+}
+.cal .ev.ev-feed.tentative:not(.task-bg) {
+	box-shadow: none;
+	outline: 1px dashed var(--line2);
+	outline-offset: -1px;
+}
+.cal .ev.ev-draft:not(.task-bg) {
+	background: var(--background) !important;
+	box-shadow:
+		inset 0 0 0 1.5px var(--foreground),
+		0 4px 14px rgb(0 0 0 / 0.12);
+}
+.cal .ev.ev-draft .ev-tt {
+	font-weight: 600;
+}
+/* deadlines and all-day tasks: no fill, just the mark and the title */
+.cal .ev.ev-deadline:not(.task-bg),
+.cal .ev.ev-task:not(.task-bg) {
+	background: transparent !important;
+	color: var(--muted-foreground) !important;
+}
+.cal .ev.ev-deadline .ev-tt {
+	color: var(--foreground);
+	font-weight: 400;
+}
+.task-done {
+	color: var(--muted-foreground);
+	text-decoration: line-through;
+}
+/* timed tasks in week/day view are background events (Calendar.svelte `taskEntries`): dotted
+   outline, muted, square mark; they fill on hover */
+.cal .task-bg[data-task-id] {
+	overflow: hidden; /* titles in narrow columns */
+	cursor: pointer;
+	border: 1px dotted var(--line2);
+	border-radius: 6px;
+	background: transparent !important;
+	color: var(--muted-foreground);
+	padding: 4px 8px;
+	margin: 1px 3px;
+}
+.cal .task-bg .ev-line {
+	font-weight: 400;
+}
+/* background tasks that overlap share the width of the day (FC pins fills with !important) */
+.task-bg[class*='tc-n'] {
+	left: calc(100% * var(--tc-i) / var(--tc-n)) !important;
+	right: auto !important;
+	width: calc(100% / var(--tc-n));
+}
+.tc-n2 {
+	--tc-n: 2;
+}
+.tc-n3 {
+	--tc-n: 3;
+}
+.tc-n4 {
+	--tc-n: 4;
+}
+.tc-n5 {
+	--tc-n: 5;
+}
+.tc-n6 {
+	--tc-n: 6;
+}
+.tc-n7 {
+	--tc-n: 7;
+}
+.tc-n8 {
+	--tc-n: 8;
+}
+.tc-i0 {
+	--tc-i: 0;
+}
+.tc-i1 {
+	--tc-i: 1;
+}
+.tc-i2 {
+	--tc-i: 2;
+}
+.tc-i3 {
+	--tc-i: 3;
+}
+.tc-i4 {
+	--tc-i: 4;
+}
+.tc-i5 {
+	--tc-i: 5;
+}
+.tc-i6 {
+	--tc-i: 6;
+}
+.tc-i7 {
+	--tc-i: 7;
+}
+.cal-task-hover,
+.cal-task-hover * {
+	cursor: pointer;
+}
+.cal .task-bg[data-task-id]:hover,
+.cal .task-bg.task-hover {
+	border-color: var(--muted-foreground);
+	background: var(--panel) !important;
+	color: var(--foreground);
+}
+
+/* grid chrome: weekday + day number headers (today in an ink circle), muted hour labels */
+.cal .dh {
+	display: flex;
+	align-items: center;
+	padding: 6px 2px;
+}
+.cal .cal-today {
+	background-color: var(--panel);
+}
+.cal .ev {
+	font-size: 13px;
+	line-height: 1.35;
+	white-space: nowrap;
+	overflow: hidden;
+}
+.cal .dh-wd {
+	color: var(--muted-foreground);
+	font-weight: 400;
+}
+.cal .dh-n {
+	margin-left: 6px;
+	font-size: 17px;
+	font-weight: 500;
+}
+.cal .dh-n.dh-today {
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: var(--primary);
+	color: var(--primary-foreground);
+	font-size: 15px;
+	font-weight: 600;
+}
+/* FC v7 classes are hashed, so these hook into roles/data attributes.
+   Month view: the whole top strip of a day cell opens that day (handled in Calendar.svelte). */
+.cal-month [role='cell'][data-date] > [role='presentation']:first-child {
+	cursor: pointer;
+	border-radius: calc(var(--radius) - 4px);
+}
+.cal-month [role='cell'][data-date] > [role='presentation']:first-child:hover {
+	background: var(--accent);
+}
+/* confirm/prompt dialogs open on top of sheets (both are z-50 in shadcn; DOM order would decide) */
+[data-slot='alert-dialog-overlay'],
+[data-slot='alert-dialog-content'] {
+	z-index: 60;
+}
+
+/* canvas pen UI (touch devices): our PenBar replaces Excalidraw's tool bar, panels and footer
+   (desktop and mobile layout); they stay in the DOM for its undo/redo buttons */
+.pen-ui .excalidraw :is(.layer-ui__wrapper, .App-top-bar, .App-bottom-bar) {
+	display: none;
+}
+
+/* a picture of a note, shown large (zoom() in editor/images.ts) */
+.md-zoom {
+	position: fixed;
+	inset: 0;
+	z-index: 1000; /* above the editor's popups too */
+	padding: 2rem;
+	background: color-mix(in oklab, var(--background) 92%, transparent);
+	cursor: zoom-out;
+}
+.md-zoom img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+/* a mail put off until later (Calendar.svelte `mailEntries`): dotted, muted, mail icon */
+.cal .ev.ev-mail:not(.task-bg) {
+	border: 0 !important;
+	border-radius: 6px !important;
+	background: var(--background) !important;
+	color: var(--muted-foreground) !important;
+	box-shadow: none;
+	outline: 1.5px dotted var(--line2);
+	outline-offset: -1.5px;
+}
+.ev-mail .ev-flag {
+	color: var(--muted-foreground);
+}
