@@ -119,6 +119,17 @@ export function migrate() {
 	return n;
 }
 
+/** One-time conversion: our properties were X-PLANNER-* until 2026-11-24 (now X-COMMONPLACE-*).
+ *  The rows become dirty, so the next push takes the new text to the CalDAV server. */
+export const renameProps = db.transaction(() => {
+	const rows = db
+		.query<Row, []>("SELECT * FROM dav WHERE deleted = 0 AND ics LIKE '%X-PLANNER-%'")
+		.all();
+	const update = db.query('UPDATE dav SET ics = ?2, dirty = 1 WHERE uid = ?1');
+	for (const r of rows) update.run(r.uid, r.ics.replace(/^X-PLANNER-/gm, 'X-COMMONPLACE-'));
+	return rows.length;
+});
+
 /** Derive the docs from a resource. Returns false if nothing came of it. */
 const project = db.transaction((row: Row): boolean => {
 	const p = parse(row.ics);

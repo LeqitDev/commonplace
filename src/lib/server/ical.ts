@@ -94,11 +94,20 @@ const text = (c: Comp, name: string) => {
 	return v === null || v === undefined || v === '' ? undefined : String(v);
 };
 
+// Our own properties are X-COMMONPLACE-<name>. Until 2026-11-24 they were X-PLANNER-<name>:
+// still read, and dropped when the item is written (`renameProps()` in dav.ts converts them once).
+function setOwn(c: Comp, name: string, v: unknown) {
+	c.removeAllProperties(`x-planner-${name}`);
+	set(c, `x-commonplace-${name}`, v);
+}
+const textOwn = (c: Comp, name: string) =>
+	text(c, `x-commonplace-${name}`) ?? text(c, `x-planner-${name}`);
+
 function calendar(prev?: string) {
 	if (prev) return new ICAL.Component(ICAL.parse(prev));
 	const cal = new ICAL.Component('vcalendar');
 	cal.addPropertyWithValue('version', '2.0');
-	cal.addPropertyWithValue('prodid', '-//personal-planner//EN');
+	cal.addPropertyWithValue('prodid', '-//Commonplace//EN');
 	return cal;
 }
 
@@ -145,12 +154,12 @@ function writeShared(v: Comp, d: Partial<Shared>) {
 		p.setValues(d.tags);
 		v.addProperty(p);
 	}
-	set(v, 'x-planner-project', d.projectId);
-	set(v, 'x-planner-category', d.categoryId);
+	setOwn(v, 'project', d.projectId);
+	setOwn(v, 'category', d.categoryId);
 	// the mail it was made from (JSON: thread, subject, from)
-	set(v, 'x-planner-mail', d.mail ? JSON.stringify(d.mail) : null);
+	setOwn(v, 'mail', d.mail ? JSON.stringify(d.mail) : null);
 	// from an invitation: organizer and our answer (the ATTENDEE lines are the organizer's)
-	set(v, 'x-planner-invite', d.invite ? JSON.stringify(d.invite) : null);
+	setOwn(v, 'invite', d.invite ? JSON.stringify(d.invite) : null);
 	const now = ICAL.Time.fromJSDate(new Date(), true);
 	if (!v.hasProperty('created'))
 		v.addPropertyWithValue(
@@ -169,10 +178,10 @@ function readShared(v: Comp) {
 		title: text(v, 'summary') ?? '',
 		description: text(v, 'description'),
 		...(tags.length && { tags }),
-		projectId: text(v, 'x-planner-project'),
-		categoryId: text(v, 'x-planner-category'),
-		mail: json(text(v, 'x-planner-mail')),
-		invite: json(text(v, 'x-planner-invite')),
+		projectId: textOwn(v, 'project'),
+		categoryId: textOwn(v, 'category'),
+		mail: json(textOwn(v, 'mail')),
+		invite: json(textOwn(v, 'invite')),
 		createdAt: iso(v.getFirstProperty('created'))
 	};
 }
@@ -294,7 +303,7 @@ export function taskToIcs(t: Task, prev?: string): string {
 	const kind: Kind = !timed ? 'date' : t.rrule && local() ? 'local' : 'utc';
 	writeShared(v, t);
 	set(v, 'status', (t.status && STATUS[t.status as keyof typeof STATUS]) ?? 'NEEDS-ACTION');
-	set(v, 'x-planner-status', t.status === 'todo' || t.status === 'waiting' ? t.status : null);
+	setOwn(v, 'status', t.status === 'todo' || t.status === 'waiting' ? t.status : null);
 	set(v, 'completed', t.completedAt && ICAL.Time.fromJSDate(new Date(t.completedAt), true));
 	if (t.status === 'done') set(v, 'percent-complete', 100);
 	else if (Number(v.getFirstPropertyValue('percent-complete')) === 100)
@@ -308,8 +317,8 @@ export function taskToIcs(t: Task, prev?: string): string {
 	const span = t.start && t.end ? parseDate(t.end).getTime() - parseDate(t.start).getTime() : 0;
 	const duration = !t.deadline && span > 0;
 	set(v, 'duration', duration ? ICAL.Duration.fromSeconds(span / SEC) : null);
-	set(v, 'x-planner-end', duration ? null : t.end);
-	set(v, 'x-planner-estimate', t.estimate ? String(t.estimate) : null);
+	setOwn(v, 'end', duration ? null : t.end);
+	setOwn(v, 'estimate', t.estimate ? String(t.estimate) : null);
 	writeRule(v, t.rrule, kind);
 	set(v, 'related-to', t.parentId);
 	// alarms that are still among the reminders stay as they are
@@ -331,7 +340,7 @@ export function taskToIcs(t: Task, prev?: string): string {
 
 function readTask(v: Comp, id: string): Task {
 	const status = text(v, 'status');
-	const own = text(v, 'x-planner-status');
+	const own = textOwn(v, 'status');
 	const priority = Number(v.getFirstPropertyValue('priority') ?? 0);
 	const start = v.getFirstProperty('dtstart');
 	const due = v.getFirstProperty('due');
@@ -374,14 +383,14 @@ function readTask(v: Comp, id: string): Task {
 			: undefined) as Priority | undefined,
 		start: anchor ? undefined : startIso,
 		end:
-			text(v, 'x-planner-end') ??
+			textOwn(v, 'end') ??
 			(duration && startIso && !anchor
 				? startIso.length === 10
 					? localIso(parseDate(startIso).getTime() + duration.toSeconds() * SEC, true)
 					: new Date(new Date(startIso).getTime() + duration.toSeconds() * SEC).toISOString()
 				: undefined),
 		deadline,
-		estimate: Number(text(v, 'x-planner-estimate')) || undefined,
+		estimate: Number(textOwn(v, 'estimate')) || undefined,
 		rrule,
 		parentId: text(v, 'related-to'),
 		reminders: reminders.length ? reminders : undefined,

@@ -2,7 +2,7 @@
 // every collection is rows of (coll, id, JSON data).
 import { Database } from 'bun:sqlite';
 import { error } from '@sveltejs/kit';
-import { mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { canvasText } from '../canvas.ts';
 import type { SearchHit, Settings } from '../types.ts';
@@ -35,9 +35,30 @@ export const isColl = (c: string): c is Coll => (COLLS as readonly string[]).inc
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Doc = { id: string; [k: string]: any };
 
-export const db = new Database(process.env.DB_PATH ?? join(DATA_DIR, 'planner.db'), {
-	create: true
-});
+const BACKUPS = join(DATA_DIR, 'backups');
+
+/** The app was called Planner until 2026-11-24: `planner.db` and the backups `planner-<date>.db`
+ *  get the new name once, before the database is opened. Returns the file to open. */
+function renameLegacyFiles() {
+	if (existsSync(BACKUPS))
+		for (const f of readdirSync(BACKUPS)) {
+			const to = join(BACKUPS, f.replace(/^planner-/, 'commonplace-'));
+			if (/^planner-.*\.db$/.test(f) && !existsSync(to)) renameSync(join(BACKUPS, f), to);
+		}
+	if (process.env.DB_PATH) return process.env.DB_PATH;
+	const [now, old] = [join(DATA_DIR, 'commonplace.db'), join(DATA_DIR, 'planner.db')];
+	if (existsSync(now) || !existsSync(old)) return now;
+	// Its WAL files are there while a connection has it open, and stay after a crash. The last
+	// connection to close removes them: if they're still there, another process has it (a server
+	// on the same DATA_DIR, `vite build` loads this module too): keep using it, rename later.
+	const inUse = () => existsSync(`${old}-wal`) || existsSync(`${old}-shm`);
+	if (inUse()) new Database(old).close();
+	if (inUse()) return old;
+	renameSync(old, now);
+	return now;
+}
+
+export const db = new Database(renameLegacyFiles(), { create: true });
 db.run('PRAGMA journal_mode = WAL');
 db.run(
 	'CREATE TABLE IF NOT EXISTS docs (coll TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (coll, id))'
@@ -193,12 +214,12 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 
 /** Nightly snapshot into DATA_DIR/backups, keeping the newest 14. */
 export function backup() {
-	const dir = join(DATA_DIR, 'backups');
-	mkdirSync(dir, { recursive: true });
-	const file = join(dir, `planner-${new Date().toISOString().slice(0, 10)}.db`);
+	mkdirSync(BACKUPS, { recursive: true });
+	const file = join(BACKUPS, `commonplace-${new Date().toISOString().slice(0, 10)}.db`);
 	rmSync(file, { force: true });
 	db.run(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
-	for (const old of readdirSync(dir).sort().reverse().slice(14)) rmSync(join(dir, old));
+	const ours = readdirSync(BACKUPS).filter((f) => /^commonplace-.*\.db$/.test(f));
+	for (const old of ours.sort().reverse().slice(14)) rmSync(join(BACKUPS, old));
 	return file;
 }
 

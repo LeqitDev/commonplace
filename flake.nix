@@ -1,5 +1,5 @@
 {
-  description = "personal-planner dev shell";
+  description = "Commonplace dev shell";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { nixpkgs, ... }:
     let

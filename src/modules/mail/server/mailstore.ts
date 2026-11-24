@@ -2,7 +2,7 @@
 // The IMAP server is the truth; all of this can be deleted and is rebuilt by the next sync.
 import { Database } from 'bun:sqlite';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DATA_DIR } from '#lib/server/db.ts';
 import type { MailView } from '../mail.ts';
@@ -692,3 +692,28 @@ export const inviteRows = (account: string, since: string) =>
 			"SELECT * FROM msg WHERE account = ? AND folder = 'inbox' AND invite = 1 AND cached = 1 AND date >= ? ORDER BY date"
 		)
 		.all(account, since);
+
+/** One-time conversion: a message without a Message-ID got the placeholder `…@planner.invalid`
+ *  until 2026-11-24 (now `…@commonplace.invalid`). Its cached `.eml` is named after the id, so it
+ *  moves too; the thread id stays, so "later", projects and links to the mail are kept. */
+export const renameLegacyIds = mdb.transaction(() => {
+	const rows = mdb
+		.query<{ account: string; msgid: string }, []>(
+			"SELECT DISTINCT account, msgid FROM msg WHERE msgid LIKE '%@planner.invalid>'"
+		)
+		.all();
+	const to = (id: string) => id.replace(/@planner\.invalid>$/, '@commonplace.invalid>');
+	for (const r of rows) {
+		const [from, dest] = [emlPath(r.account, r.msgid), emlPath(r.account, to(r.msgid))];
+		if (existsSync(from) && !existsSync(dest)) renameSync(from, dest);
+	}
+	for (const t of ['msg', 'triage'])
+		mdb.run(
+			`UPDATE ${t} SET msgid = replace(msgid, '@planner.invalid>', '@commonplace.invalid>') WHERE msgid LIKE '%@planner.invalid>'`
+		);
+	mdb.run(
+		"UPDATE ops SET args = replace(args, '@planner.invalid>', '@commonplace.invalid>') WHERE args LIKE '%@planner.invalid>%'"
+	);
+	return rows.length;
+});
+renameLegacyIds();

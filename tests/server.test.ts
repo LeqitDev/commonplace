@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { Database } from 'bun:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 process.env.TZ = 'Europe/Berlin';
-process.env.DATA_DIR = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'planner-test-'));
+process.env.DATA_DIR = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
 
 let db: typeof import('../src/lib/server/db.ts');
 let feeds: typeof import('../src/modules/calendar/server/feeds.ts');
@@ -120,4 +121,57 @@ test('ICS expansion: RRULE + EXDATE + RECURRENCE-ID + TZID + all-day', () => {
 	expect(standups.at(-1)!.start).toBe('2026-11-09T08:00:00.000Z'); // 09:00 CET after DST
 	const xmas = evs.find((e) => e.title === 'Christmas')!;
 	expect(xmas).toMatchObject({ start: '2026-12-25', allDay: true });
+});
+
+test('planner.db and its backups from before the rename get the new name', () => {
+	const dir = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
+	const old = new Database(join(dir, 'planner.db'));
+	old.run(
+		'CREATE TABLE docs (coll TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (coll, id))'
+	);
+	old.run(`INSERT INTO docs VALUES ('notes', 'n1', '{"id":"n1","title":"Kept","type":"md"}')`);
+	old.close();
+	mkdirSync(join(dir, 'backups'));
+	writeFileSync(join(dir, 'backups', 'planner-2026-01-01.db'), '');
+	// db.ts renames when it is loaded: in a process of its own with that DATA_DIR
+	const run = Bun.spawnSync(
+		[
+			'bun',
+			'-e',
+			`const db = await import('${import.meta.dir}/../src/lib/server/db.ts'); console.log(db.get('notes', 'n1')?.title)`
+		],
+		{ env: { ...process.env, DATA_DIR: dir }, cwd: `${import.meta.dir}/..` }
+	);
+	expect(run.stderr.toString()).toBe('');
+	expect(run.stdout.toString().trim()).toBe('Kept');
+	expect(existsSync(join(dir, 'planner.db'))).toBe(false);
+	expect(existsSync(join(dir, 'commonplace.db'))).toBe(true);
+	expect(readdirSync(join(dir, 'backups'))).toEqual(['commonplace-2026-01-01.db']);
+});
+
+test('a planner.db that is open elsewhere is used as it is and renamed later', () => {
+	const dir = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
+	const open = new Database(join(dir, 'planner.db'));
+	open.run('PRAGMA journal_mode = WAL'); // another server has it: -wal and -shm are there
+	open.run(
+		'CREATE TABLE docs (coll TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (coll, id))'
+	);
+	open.run(`INSERT INTO docs VALUES ('notes', 'n1', '{"id":"n1","title":"Kept","type":"md"}')`);
+	const load = () =>
+		Bun.spawnSync(
+			[
+				'bun',
+				'-e',
+				`const db = await import('${import.meta.dir}/../src/lib/server/db.ts'); console.log(db.get('notes', 'n1')?.title)`
+			],
+			{ env: { ...process.env, DATA_DIR: dir }, cwd: `${import.meta.dir}/..` }
+		)
+			.stdout.toString()
+			.trim();
+	expect(load()).toBe('Kept');
+	expect(existsSync(join(dir, 'planner.db'))).toBe(true);
+	expect(existsSync(join(dir, 'commonplace.db'))).toBe(false);
+	open.close(); // the other server stops
+	expect(load()).toBe('Kept');
+	expect(existsSync(join(dir, 'commonplace.db'))).toBe(true);
 });

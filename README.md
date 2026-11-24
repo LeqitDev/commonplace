@@ -1,12 +1,12 @@
-# Planner
+# Commonplace
 
-A personal, single-user planner for the desktop and the iPad. It has a calendar, tasks, notes, drawings, flashcards and mail in one app, grouped by projects. Built with SvelteKit, Bun and SQLite, it runs in one container behind a reverse proxy.
+A personal, single-user planner for the desktop and the iPad, named after the _commonplace book_: the notebook people once kept for everything worth holding on to. It has a calendar, tasks, notes, drawings, flashcards and mail in one app, grouped by projects. Built with SvelteKit, Bun and SQLite, it runs in one container behind a reverse proxy.
 
 > [!WARNING]
 > **Built with AI.** Most of the code and documentation in this repository was written by an AI coding agent (Claude Code), directed, reviewed and tested by me. It is a personal project. Expect rough edges and review the code before you trust it with data you care about.
 
 > [!IMPORTANT]
-> **No login in the app.** The planner has no user accounts or authentication of its own. Run it behind an authenticating reverse proxy (see [Nginx Proxy Manager + Authelia](#nginx-proxy-manager--authelia)) or on a network you trust.
+> **No login in the app.** Commonplace has no user accounts or authentication of its own. Run it behind an authenticating reverse proxy (see [Nginx Proxy Manager + Authelia](#nginx-proxy-manager--authelia)) or on a network you trust.
 
 ## Gallery
 
@@ -67,7 +67,7 @@ docker compose up -d --build
 
 The container listens on port 3000 and is only reachable on the `proxy` network. Data lives in `./data`:
 
-- `planner.db`, the database
+- `commonplace.db`, the database (called `planner.db` before 2026-11-24: renamed on the first start)
 - `files/`, uploads
 - `mail.db` + `mail/`, the mail cache (can be deleted)
 - `typst-fonts/`
@@ -76,11 +76,11 @@ The container listens on port 3000 and is only reachable on the `proxy` network.
 | Env                               | Default | Meaning                                                                                                                                             |
 | --------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATA_DIR`                        | `/data` | database, uploads, mail cache, backups                                                                                                              |
-| `DB_PATH` / `MAIL_DB_PATH`        | unset   | put `planner.db` / `mail.db` somewhere other than `DATA_DIR`                                                                                        |
+| `DB_PATH` / `MAIL_DB_PATH`        | unset   | put `commonplace.db` / `mail.db` somewhere other than `DATA_DIR`                                                                                    |
 | `MODULES`                         | `all`   | build arg: which optional modules are built (see [Modules](#modules-building-and-switching-parts-off))                                              |
 | `REQUIRE_AUTH_HEADER`             | unset   | `true` → 401 unless the request carries `Remote-User` (set by Authelia)                                                                             |
-| `TZ`                              | UTC     | server timezone (backups at 03:00, floating ICS times); set it to the timezone you use the planner in: recurring events are written to CalDAV in it |
-| `CALDAV_URL`                      | unset   | CalDAV calendar that holds the planner's events and tasks (see below)                                                                               |
+| `TZ`                              | UTC     | server timezone (backups at 03:00, floating ICS times); set it to the timezone you use Commonplace in: recurring events are written to CalDAV in it |
+| `CALDAV_URL`                      | unset   | CalDAV calendar that holds the events and tasks (see below)                                                                                         |
 | `CALDAV_USER` / `CALDAV_PASSWORD` | unset   | its login (Basic auth)                                                                                                                              |
 | `CALDAV_TASKS_URL`                | unset   | a second calendar for the tasks, if the server keeps them apart                                                                                     |
 | `BODY_SIZE_LIMIT`                 | `100M`  | max upload size                                                                                                                                     |
@@ -92,10 +92,10 @@ Upgrading an existing instance: read [`MIGRATIONS.md`](MIGRATIONS.md) (newest fi
 
 ### Events and tasks on a CalDAV server
 
-Events and tasks are RFC 5545 objects (VEVENT / VTODO; planner-only fields are `X-PLANNER-*` properties). With `CALDAV_URL` set, they live in that CalDAV calendar and other apps (phone, desktop) work on the same data. The planner keeps a local copy and sends its changes right away. It takes over changes from the server every 5 minutes, when its tab gets the focus, and on "Sync now" in Settings. Without `CALDAV_URL`, the same objects are kept in `planner.db` only.
+Events and tasks are RFC 5545 objects (VEVENT / VTODO; app-only fields are `X-COMMONPLACE-*` properties). With `CALDAV_URL` set, they live in that CalDAV calendar and other apps (phone, desktop) work on the same data. Commonplace keeps a local copy and sends its changes right away. It takes over changes from the server every 5 minutes, when its tab gets the focus, and on "Sync now" in Settings. Without `CALDAV_URL`, the same objects are kept in `planner.db` only.
 
 - `CALDAV_URL` is the URL of **one calendar collection** (not of the server or the account), e.g. `http://radicale:5232/alex/planner/`. It has to exist and accept both VEVENT and VTODO; otherwise give the task list as `CALDAV_TASKS_URL`.
-- At the first start with it, everything already in the planner is uploaded, and what is in the calendar is taken over.
+- At the first start with it, everything already in Commonplace is uploaded, and what is in the calendar is taken over.
 - Pointing it at another calendar later uploads everything there; nothing is deleted on either side.
 - Don't add the same calendar as a read-only "External calendar" as well, or its events show twice.
 
@@ -103,7 +103,7 @@ Events and tasks are RFC 5545 objects (VEVENT / VTODO; planner-only fields are `
 
 ### Mail
 
-Settings → Mail accounts → Add account (Gmail, iCloud or any IMAP server). The planner syncs Inbox, Sent and Archive (Gmail: All Mail) every 5 minutes and when its tab gets the focus. It keeps complete messages of the last 90 days, and the headers and a snippet of older ones. An older message is fetched when you open it. The mail server stays the truth: the copy (`mail.db`, `mail/`) can be deleted while the app is stopped, and the next sync reads it again. Passwords are stored in `planner.db` on the server and never sent to the browser.
+Settings → Mail accounts → Add account (Gmail, iCloud or any IMAP server). Commonplace syncs Inbox, Sent and Archive (Gmail: All Mail) every 5 minutes and when its tab gets the focus. It keeps complete messages of the last 90 days, and the headers and a snippet of older ones. An older message is fetched when you open it. The mail server stays the truth: the copy (`mail.db`, `mail/`) can be deleted while the app is stopped, and the next sync reads it again. Passwords are stored in `commonplace.db` on the server and never sent to the browser.
 
 New inbox mail arrives within seconds: the server keeps one connection per account in IDLE on the inbox (the 5-minute sync stays as a safety net).
 
@@ -123,7 +123,7 @@ Account setup:
 
 ### Mail triage (local model)
 
-A decision model sorts and annotates incoming mail. It runs **on your own computer, not on the server**: a browser tab of the planner sends each new inbox mail of the last two weeks to the model and saves the answers on the server, so every device sees them. The answers are:
+A decision model sorts and annotates incoming mail. It runs **on your own computer, not on the server**: a browser tab of Commonplace sends each new inbox mail of the last two weeks to the model and saves the answers on the server, so every device sees them. The answers are:
 
 - category, sender, whether you need to act and what to do
 - by when, and how important
@@ -131,14 +131,14 @@ A decision model sorts and annotates incoming mail. It runs **on your own comput
 
 They show as markers in the list (`Reply · Mon`, a shield for possible phishing, a key for login codes), as **All / Needs you / Other** above the inbox, and as a line under the subject. "Details" lists every answer, and you can correct any of them there. Nothing is moved on the mail server.
 
-1. Install [LM Studio](https://lmstudio.ai), download the decision model (`fastino_glide-9b`) and start its local server (Developer → Start server, port 1234). The planner calls `POST http://127.0.0.1:1234/v1/decisions`; LM Studio allows browser requests from any site (CORS) by default.
-2. In the planner: Settings → Mail → Triage → switch on "Triage new mail with a local model" on that computer, then **Test**.
+1. Install [LM Studio](https://lmstudio.ai), download the decision model (`fastino_glide-9b`) and start its local server (Developer → Start server, port 1234). Commonplace calls `POST http://127.0.0.1:1234/v1/decisions`; LM Studio allows browser requests from any site (CORS) by default.
+2. In Commonplace: Settings → Mail → Triage → switch on "Triage new mail with a local model" on that computer, then **Test**.
    - Chrome asks once whether the site may reach devices on your local network: allow it.
    - Safari blocks `http://127.0.0.1` from an HTTPS page; use Chrome or Firefox there.
    - Fill in "About you" (study, job) so the model can judge what concerns you.
-3. Triage happens only while a planner tab is open on that computer. Mail that came in meanwhile is triaged when you open the planner again.
+3. Triage happens only while a Commonplace tab is open on that computer. Mail that came in meanwhile is triaged when you open Commonplace again.
 
-Corrected answers are kept with what the model was told (`triage_labels` in `planner.db`). `bun scripts/triage-eval.ts` measures the model on them: accuracy with 95% intervals, calibration and confusions; `--shuffle` checks whether answers change with the order of the options. It uses `TRIAGE_URL` / `TRIAGE_MODEL` if set (default: LM Studio on `127.0.0.1:1234`). The questions are in `src/modules/mail/triage/triage-questions.json`; changing them asks the model about the last two weeks again.
+Corrected answers are kept with what the model was told (`triage_labels` in `commonplace.db`). `bun scripts/triage-eval.ts` measures the model on them: accuracy with 95% intervals, calibration and confusions; `--shuffle` checks whether answers change with the order of the options. It uses `TRIAGE_URL` / `TRIAGE_MODEL` if set (default: LM Studio on `127.0.0.1:1234`). The questions are in `src/modules/mail/triage/triage-questions.json`; changing them asks the model about the last two weeks again.
 
 ### Modules: building and switching parts off
 
@@ -155,7 +155,7 @@ Nothing is deleted either way: data of a left-out or switched-off module stays i
 
 ### Nginx Proxy Manager + Authelia
 
-1. In NPM add a proxy host `planner.example.com` → `planner`, port `3000`, with SSL.
+1. In NPM add a proxy host `commonplace.example.com` → `commonplace`, port `3000`, with SSL.
 2. Add the Authelia snippets from the [Authelia NPM guide](https://www.authelia.com/integration/proxies/nginx-proxy-manager/) and put this in the host's **Advanced** tab:
 
 ```nginx
@@ -169,7 +169,7 @@ location / {
 }
 ```
 
-3. In Authelia's `access_control`, add a rule for `planner.example.com` (`one_factor` or `two_factor`).
+3. In Authelia's `access_control`, add a rule for `commonplace.example.com` (`one_factor` or `two_factor`).
 
 When the Authelia session expires, the app keeps unsaved note drafts in the browser and asks you to reload.
 

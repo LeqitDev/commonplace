@@ -30,7 +30,7 @@
 			const res = await fetch('/api/backup');
 			if (!res.ok) throw new Error((await res.text()) || res.statusText);
 			const name =
-				res.headers.get('content-disposition')?.match(/filename="(.+?)"/)?.[1] ?? 'planner.db';
+				res.headers.get('content-disposition')?.match(/filename="(.+?)"/)?.[1] ?? 'commonplace.db';
 			const a = Object.assign(document.createElement('a'), {
 				href: URL.createObjectURL(await res.blob()),
 				download: name
@@ -92,7 +92,7 @@
 		<div class={row}>
 			<div class="min-w-0 flex-[1_1_160px]">
 				<div class="font-medium">Backup</div>
-				<div class="text-muted-foreground">Everything in the Planner as one database file.</div>
+				<div class="text-muted-foreground">Everything in Commonplace as one database file.</div>
 			</div>
 			<button class={btn} disabled={backingUp} aria-busy={backingUp} onclick={downloadBackup}>
 				{#if backingUp}<LoaderCircle class="animate-spin" />Preparing snapshot…{:else}<Download

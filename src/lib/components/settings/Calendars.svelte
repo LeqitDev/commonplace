@@ -86,7 +86,7 @@
 			>
 				<Info class="size-4 shrink-0" />
 				<span
-					>CalDAV is not set up on the server, so events and tasks stay in the Planner only. It is
+					>CalDAV is not set up on the server, so events and tasks stay in Commonplace only. It is
 					switched on with <code>CALDAV_URL</code> in the server's configuration.</span
 				>
 			</div>

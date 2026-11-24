@@ -10,7 +10,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Planner</title>
+	<title>Commonplace</title>
 </svelte:head>
 
 <ModeWatcher />

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 process.env.TZ = 'Europe/Berlin';
-process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'planner-test-'));
+process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
 
 let db: typeof import('../src/lib/server/db.ts');
 let dav: typeof import('../src/lib/server/dav.ts');
@@ -160,6 +160,23 @@ describe('caldav', () => {
 		expect(ics).toContain('SUMMARY:Annual report');
 		expect(ics).toContain('STATUS:IN-PROCESS');
 		expect(dav.status().pending).toBe(0);
+	});
+
+	test('X-PLANNER-* from before the rename become X-COMMONPLACE-* here and there', async () => {
+		write('tasks', 'dav-t', { projectId: 'p-x' });
+		await dav.sync();
+		// as written by a version from before 2026-11-24
+		db.db.run(
+			"UPDATE dav SET ics = replace(ics, 'X-COMMONPLACE-', 'X-PLANNER-'), dirty = 0 WHERE uid = 'dav-t'"
+		);
+		expect(dav.renameProps()).toBe(1);
+		expect(dav.renameProps()).toBe(0);
+		expect(dav.status().pending).toBe(1);
+		await dav.sync();
+		const ics = (await remote('dav-t'))!;
+		expect(ics).toContain('X-COMMONPLACE-PROJECT:p-x');
+		expect(ics).not.toContain('X-PLANNER-');
+		expect(db.get('tasks', 'dav-t')?.projectId).toBe('p-x');
 	});
 
 	test('edits, new objects and deletions there are taken over', async () => {

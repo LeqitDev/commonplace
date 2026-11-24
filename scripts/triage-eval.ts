@@ -25,7 +25,7 @@ import {
 } from '../src/modules/mail/triage/triage.ts';
 
 const args = new Set(process.argv.slice(2));
-const file = process.env.DB_PATH ?? join(process.env.DATA_DIR ?? 'data', 'planner.db');
+const file = process.env.DB_PATH ?? join(process.env.DATA_DIR ?? 'data', 'commonplace.db');
 const db = new Database(file, { readonly: true });
 type Row = { msgid: string; state: string; facts: string; answers: string; labels: string };
 const rows = db

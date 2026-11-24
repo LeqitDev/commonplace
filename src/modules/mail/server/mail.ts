@@ -154,7 +154,7 @@ export function structureFlags(s?: MessageStructureObject) {
 /** Row of the cache from what FETCH returned (envelope, flags, structure, References header). */
 export function toRow(a: string, folder: store.Folder, m: FetchMessageObject): store.NewMsg {
 	const env = m.envelope ?? {};
-	const msgid = env.messageId || `<${folder}.${m.uid}.${a}@planner.invalid>`;
+	const msgid = env.messageId || `<${folder}.${m.uid}.${a}@commonplace.invalid>`;
 	const refs = ids(m.headers?.toString().replace(/\r?\n\s+/g, ' '));
 	const from = env.from?.[0];
 	const date = new Date(m.internalDate ?? env.date ?? 0);
@@ -557,7 +557,7 @@ async function runOps(c: ImapFlow, id: string, boxes: Boxes) {
 				const msgidOf = new Map<number, string>();
 				for (const it of args.items) {
 					let uid = it.uid ?? store.uidOf(id, src, it.msgid);
-					if (!uid && !it.msgid.endsWith('@planner.invalid>'))
+					if (!uid && !it.msgid.endsWith('.invalid>'))
 						uid =
 							((await c.search({ header: { 'message-id': it.msgid } }, { uid: true })) || [])[0] ??
 							null;
@@ -1061,7 +1061,7 @@ function smtpOptions(a: MailAccount) {
 	};
 }
 
-const mailDomain = (addr: string) => addr.split('@')[1] || 'planner.invalid';
+const mailDomain = (addr: string) => addr.split('@')[1] || 'commonplace.invalid';
 
 /** The raw message of a draft: markdown → text part as is and HTML part with marked; pictures
  *  from the notes (`/files/<id>`) go inline as cid, files and forwarded attachments along. */
@@ -1072,7 +1072,7 @@ export async function compose(d: MailDraft, a: MailAccount, messageId: string) {
 		/(<img[^>]*\ssrc=")\/files\/([\w-]+)"/g,
 		(_, pre: string, id: string) => {
 			const meta = get('files', id);
-			const cid = `${id}@planner`;
+			const cid = `${id}@commonplace`;
 			if (!inline.some((x) => x.cid === cid))
 				inline.push({
 					cid,
@@ -1296,7 +1296,7 @@ export function replyIcs(ics: string, me: { name?: string; address: string }, pa
 	const src = new ICAL.Component(ICAL.parse(ics));
 	const v = src.getAllSubcomponents('vevent').find((e) => !e.hasProperty('recurrence-id'))!;
 	const cal = new ICAL.Component('vcalendar');
-	cal.addPropertyWithValue('prodid', '-//Personal Planner//Mail//EN');
+	cal.addPropertyWithValue('prodid', '-//Commonplace//Mail//EN');
 	cal.addPropertyWithValue('version', '2.0');
 	cal.addPropertyWithValue('method', 'REPLY');
 	for (const tz of src.getAllSubcomponents('vtimezone')) cal.addSubcomponent(tz);

@@ -9,7 +9,7 @@ import nodemailer from 'nodemailer';
 import PostalMime from 'postal-mime';
 import * as t from '../src/modules/mail/triage/triage.ts';
 
-process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'planner-test-'));
+process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
 
 let db: typeof import('../src/lib/server/db.ts');
 let store: typeof import('../src/modules/mail/server/mailstore.ts');
@@ -535,8 +535,7 @@ describe.skipIf(!process.env.TRIAGE_TEST_URL)('against the local model', () => {
 	const state = (email: Record<string, unknown>) =>
 		JSON.stringify({
 			now: 'Wed 2026-11-18 19:30 Europe/Berlin',
-			recipient:
-				"Computer science master's student; student assistant at a systems chair",
+			recipient: "Computer science master's student; student assistant at a systems chair",
 			email
 		});
 	test('a shipping notice is a transaction', async () => {

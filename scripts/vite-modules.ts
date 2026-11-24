@@ -33,7 +33,7 @@ export function modules(): Plugin {
 	};
 
 	return {
-		name: 'planner-modules',
+		name: 'commonplace-modules',
 		enforce: 'pre',
 		config: () => ({ define: { __MODULES__: JSON.stringify(list) } }),
 		configResolved(c) {

@@ -91,7 +91,7 @@
 		if (
 			!(await confirmAction(
 				`Remove “${a.name}”?`,
-				'Its mail stays on the server; the copy in the planner is deleted.'
+				'Its mail stays on the server; the copy in Commonplace is deleted.'
 			))
 		)
 			return;

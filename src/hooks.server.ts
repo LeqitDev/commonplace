@@ -2,7 +2,7 @@ import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import modules from 'virtual:modules/server';
 import { built } from '#modules/registry.ts';
 import { backup } from '#lib/server/db.ts';
-import { migrate, sync } from '#lib/server/dav.ts';
+import { migrate, renameProps, sync } from '#lib/server/dav.ts';
 
 const HOUR = 3_600_000;
 
@@ -10,6 +10,8 @@ export const init: ServerInit = () => {
 	// events and tasks on the CalDAV server (core: the docs are there whichever module shows them)
 	if (built('calendar') || built('tasks')) {
 		migrate(); // events and tasks from before they were iCalendar resources
+		const renamed = renameProps(); // X-PLANNER-* → X-COMMONPLACE-* (2026-11-24)
+		if (renamed) console.log(`renamed X-PLANNER-* properties in ${renamed} calendar objects`);
 		sync();
 		setInterval(sync, HOUR / 12);
 	}

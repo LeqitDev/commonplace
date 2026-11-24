@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import nodemailer from 'nodemailer';
 import type { FetchMessageObject } from 'imapflow';
 
-process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'planner-test-'));
+process.env.DATA_DIR ??= mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'commonplace-test-'));
 
 let db: typeof import('../src/lib/server/db.ts');
 let store: typeof import('../src/modules/mail/server/mailstore.ts');
@@ -420,6 +420,22 @@ describe('cache', () => {
 		store.dropAccount('a1');
 		store.dropAccount('other');
 		expect(store.unreadInbox(['a1', 'other'])).toEqual([]);
+	});
+
+	test('placeholder ids from before the rename (@planner.invalid) get the new name', async () => {
+		const { existsSync, mkdirSync, writeFileSync } = await import('node:fs');
+		const [old, now] = ['<inbox.7.a1@planner.invalid>', '<inbox.7.a1@commonplace.invalid>'];
+		const [id] = store.insert([row({ uid: 7, msgid: old, thread: 'T7' })]);
+		mkdirSync(join(store.MAIL_DIR, 'a1'), { recursive: true });
+		writeFileSync(store.emlPath('a1', old), 'Subject: no id\r\n\r\nbody');
+		store.queueOp('a1', 'flags', { items: [{ msgid: old, uid: 7 }], add: ['\\Seen'] });
+		expect(store.renameLegacyIds()).toBe(1);
+		expect(store.renameLegacyIds()).toBe(0);
+		expect(store.msg(id)).toMatchObject({ msgid: now, thread: 'T7' });
+		expect(existsSync(store.emlPath('a1', now))).toBe(true);
+		expect(existsSync(store.emlPath('a1', old))).toBe(false);
+		expect(store.pendingOps('a1').at(-1)!.args).toContain(now);
+		store.dropAccount('a1');
 	});
 });
 
@@ -939,10 +955,10 @@ describe('writing', () => {
 		expect(p.text).toContain('**revised**');
 		expect(p.text).toContain('> old text');
 		expect(p.html).toContain('<strong>revised</strong>');
-		expect(p.html).toContain('src="cid:pic1@planner"');
+		expect(p.html).toContain('src="cid:pic1@commonplace"');
 		expect(p.html).toContain('<blockquote>');
 		expect(p.attachments.map((a) => [a.filename, a.contentId ?? null])).toEqual([
-			['chart.png', '<pic1@planner>'],
+			['chart.png', '<pic1@commonplace>'],
 			['draft.pdf', null]
 		]);
 		db.remove('files', 'pic1');
@@ -1202,7 +1218,7 @@ describe('invitations', () => {
 		expect(ics).not.toContain('METHOD:'); // a calendar resource must not have one
 		expect(ics).toContain('ORGANIZER;CN=Seminar Office:mailto:seminar@uni.example');
 		expect(ics).toContain('STATUS:TENTATIVE');
-		expect(ics).toContain('X-PLANNER-INVITE');
+		expect(ics).toContain('X-COMMONPLACE-INVITE');
 		expect(db.get('events', id)).toMatchObject({
 			title: 'Guest talk',
 			tentative: true,

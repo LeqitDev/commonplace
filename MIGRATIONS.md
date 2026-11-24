@@ -2,6 +2,29 @@
 
 Newest first. Each entry says what changed, whether existing data keeps working, and what to do when upgrading.
 
+## 2026-11-24: Renamed to Commonplace
+
+**Stored data: converted on the first start, nothing to do by hand.** Besides the visible name (page title, README, settings texts, `package.json`, PRODID), the stored names change from "planner" to "commonplace". The new version converts them once when it starts (each step is skipped when there is nothing left to convert):
+
+- **Database**: `DATA_DIR/planner.db` (with `-wal`/`-shm`) is renamed to `commonplace.db`, unless `commonplace.db` exists already (`renameLegacyFiles()` in `src/lib/server/db.ts`). If another process still has `planner.db` open, the app keeps using it and renames it on a later start. With `DB_PATH` set nothing is renamed: the file you named stays.
+- **Backups**: `backups/planner-<date>.db` → `backups/commonplace-<date>.db`; new ones are `commonplace-<date>.db`, and only those count for the 14 kept.
+- **Events and tasks**: their own iCalendar properties are `X-COMMONPLACE-*` (were `X-PLANNER-*`: project, category, mail, invite, status, end, estimate). `renameProps()` in `src/lib/server/dav.ts` rewrites the stored objects and marks them changed, so with `CALDAV_URL` set **every event and task is uploaded once** to the CalDAV server after the start. `X-PLANNER-*` is still read (old backups, objects not uploaded yet) and dropped when the item is written.
+- **Mail cache**: messages without a Message-ID had the placeholder id `…@planner.invalid`, now `…@commonplace.invalid` (`renameLegacyIds()` in `src/modules/mail/server/mailstore.ts`: ids, cached `.eml` files, triage answers, queued actions). Their thread ids stay, so "later", projects and links to them are kept.
+- The browser's localStorage keys never had the name in them; nothing changes there.
+
+Steps:
+
+1. **Stop the running server first** (`docker compose down`, or stop `bun run dev`), so the database can be renamed right away.
+2. Start the new version once; its log says how many calendar objects were converted.
+3. With `DB_PATH` pointing at a file called `planner.db`, rename it yourself if you like (stop the server, move `planner.db`, `-wal` and `-shm` together, change `DB_PATH`).
+4. Going back to a version from before 2026-11-24 needs the files renamed back (`commonplace.db*` → `planner.db*`); it doesn't read `X-COMMONPLACE-*`, so its events and tasks would lose project, category, mail link, status, end and estimate.
+
+**Docker: the compose service and container are now `commonplace`** (were `planner`). If you keep your own `docker-compose.yml`, nothing changes. If you take the new one:
+
+1. `docker compose down` (removes the old `planner` container; `./data` stays).
+2. `docker compose up -d --build` (this also converts the data, see above).
+3. In Nginx Proxy Manager, change the proxy host's forward hostname from `planner` to `commonplace` (port 3000 as before). Rename the domain and the Authelia `access_control` rule only if you want to.
+
 ## 2026-11-23: Optional modules, `MODULES` build arg
 
 **No action needed.** No stored data changed; the default build has every module, as before.
@@ -86,7 +109,7 @@ Newest first. Each entry says what changed, whether existing data keeps working,
   2. Create an empty calendar on the server and set the env vars (`docker-compose.yml` has them commented out, with an example Radicale service).
   3. Restart. Everything is uploaded at the first sync and what is in the calendar is taken over; Settings → CalDAV shows the state ("N waiting to be sent", errors).
   4. If that calendar was also set up as a read-only external calendar (feed), remove the feed, or its events show twice.
-- **Mapping**: UID = doc id. Tags → `CATEGORIES`, reminders → `VALARM`, subtasks → `RELATED-TO`, deadline → `DUE`, priority 1/2/3/4 → `PRIORITY` 1/3/5/9, done/cancelled/doing → `STATUS` `COMPLETED`/`CANCELLED`/`IN-PROCESS`, tentative → `STATUS:TENTATIVE`. Planner-only fields are `X-PLANNER-PROJECT`, `X-PLANNER-CATEGORY`, `X-PLANNER-STATUS` (`todo`/`waiting`), `X-PLANNER-ESTIMATE`, `X-PLANNER-END`. A further time of an event (`times[n]`) is a VEVENT of its own with UID `<id>_t<n>` and `RELATED-TO:<id>`.
+- **Mapping**: UID = doc id. Tags → `CATEGORIES`, reminders → `VALARM`, subtasks → `RELATED-TO`, deadline → `DUE`, priority 1/2/3/4 → `PRIORITY` 1/3/5/9, done/cancelled/doing → `STATUS` `COMPLETED`/`CANCELLED`/`IN-PROCESS`, tentative → `STATUS:TENTATIVE`. Planner-only fields are `X-PLANNER-PROJECT`, `X-PLANNER-CATEGORY`, `X-PLANNER-STATUS` (`todo`/`waiting`), `X-PLANNER-ESTIMATE`, `X-PLANNER-END`. A further time of an event (`times[n]`) is a VEVENT of its own with UID `<id>_t<n>` and `RELATED-TO:<id>`. Since 2026-11-24 these are `X-COMMONPLACE-*` (see "Renamed to Commonplace"; `X-PLANNER-*` is still read).
 - **Behaviour to know about**:
   - A task created in another app without a planner status lands in the Inbox.
   - An occurrence of a recurring event that another app changed ("only this event") shows up as an event of its own with the id `<uid>_r<recurrence-id>`; it stays an override of the series on the server.

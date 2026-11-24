@@ -307,7 +307,7 @@ describe('tasks', () => {
 	});
 });
 
-describe('mail link (X-PLANNER-MAIL)', () => {
+describe('mail link (X-COMMONPLACE-MAIL)', () => {
 	const mail = { thread: 'abc123', subject: 'Re: Chapter 2; draft, v2', from: 'Anna Keller' };
 	test('tasks and events keep the mail they came from', () => {
 		const t = taskViaIcs({ id: 'tm1', title: 'Send draft', mail } as Task);
@@ -317,5 +317,25 @@ describe('mail link (X-PLANNER-MAIL)', () => {
 				.mail
 		).toEqual(mail);
 		expect(taskViaIcs({ id: 'tm2', title: 'No mail' } as Task).mail).toBeUndefined();
+	});
+});
+
+describe('X-PLANNER-* (our properties before 2026-11-24)', () => {
+	const old = (ics: string) => ics.replaceAll('X-COMMONPLACE-', 'X-PLANNER-');
+	const mail = { thread: 't1', subject: 'Hi', from: 'Anna' };
+	test('are still read', () => {
+		const e = event({ start: '2026-11-12T09:00:00.000Z', projectId: 'p1', categoryId: 'c1', mail });
+		const ev = parse(old(eventToIcs(e)[e.id]))!.docs[0] as CalEvent;
+		expect(ev).toMatchObject({ projectId: 'p1', categoryId: 'c1', mail });
+		const t = task({ status: 'waiting', start: '2026-11-12', end: '2026-11-14', estimate: 90 });
+		const tk = parse(old(taskToIcs(t)))!.docs[0] as Task;
+		expect(tk).toMatchObject({ status: 'waiting', end: '2026-11-14', estimate: 90 });
+	});
+	test('are dropped when the item is written again', () => {
+		const t = task({ status: 'todo', projectId: 'p1', estimate: 30 });
+		const again = taskToIcs({ ...t, estimate: 45 }, old(taskToIcs(t)));
+		expect(again).not.toContain('X-PLANNER-');
+		expect(lines(again)).toContain('X-COMMONPLACE-ESTIMATE:45');
+		expect(lines(again)).toContain('X-COMMONPLACE-PROJECT:p1');
 	});
 });

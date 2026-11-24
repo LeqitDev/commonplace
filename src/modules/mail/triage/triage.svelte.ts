@@ -124,7 +124,7 @@ export async function drain() {
 	do {
 		again = false;
 		if (navigator.locks)
-			await navigator.locks.request('planner-triage', { ifAvailable: true }, async (lock) => {
+			await navigator.locks.request('commonplace-triage', { ifAvailable: true }, async (lock) => {
 				if (lock) await run();
 			});
 		else await run();
