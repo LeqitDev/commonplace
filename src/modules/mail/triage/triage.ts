@@ -28,24 +28,21 @@ function hash(s: string) {
 /** Changes with the question set: mail of the triage window is asked again. */
 export const VERSION = hash(JSON.stringify(QUESTIONS));
 
-/** Thresholds (to be calibrated with labels: `scripts/triage-eval.ts`). */
+/** Thresholds (to be calibrated with labels: `scripts/triage-eval.ts`, and the synthetic mails:
+ *  `scripts/triage-fixtures.ts`). Phishing's depend on the facts: `phishingT()`. */
 export const T = {
-	/** Stop after the first round. */
-	stopPhishing: 0.5,
+	/** Stop after the first round (phishing: `phishingT().stop`). */
 	stopSpam: 0.5,
 	stopBulk: 0.5,
 	/** Ask the questions that depend on a branch (Transaction type, One-time code). */
 	branch: 0.4,
 	action: 0.5,
 	calendar: 0.5,
-	/** Warning in the reader. */
+	/** Phishing warning and Ads when a real sign points to phishing (`signals()`). */
 	warnPhishing: 0.3,
-	/** "Other" instead of "Needs you". */
-	otherPhishing: 0.5,
-	otherSpam: 0.8,
-	otherBulk: 0.5,
-	/** Expected relevance level below this (Irrelevant 0 … Highly relevant 4) and no action: Other. */
-	otherRelevance: 1.5,
+	stopPhishing: 0.5,
+	/** Ads for likely spam. */
+	adsSpam: 0.8,
 	code: 0.5,
 	followUp: 0.5
 };
@@ -179,6 +176,17 @@ export function expected(a: Answers, name: string): number | null {
 
 // ---------------------------------------------------------------- facts (from the headers)
 
+/** What the mail cache knows about earlier mail with this sender (all folders, older than this one). */
+export interface History {
+	/** Our mails to this address. */
+	sent: number;
+	/** Mails received from this address / from its domain. */
+	fromAddr: number;
+	fromDomain: number;
+	/** Date of the first mail received from the domain. */
+	since?: string;
+}
+
 /** What code knows for sure about a mail; computed by the server, told to the model and used to
  *  override its answers. */
 export interface Facts {
@@ -192,21 +200,53 @@ export interface Facts {
 	auth?: Record<string, string>;
 	/** The sender writes from the domain of our own account (not a freemail one). */
 	ownDomain?: boolean;
-	/** We wrote to this address before. */
+	/** Before 2026-11-25: we wrote to this address before (now `history.sent`). */
 	known?: boolean;
+	history?: History;
 	/** Where we are among the recipients. */
 	role?: 'to' | 'cc' | 'none';
 	recipients?: number;
 	/** Links whose text names another site than they lead to: "paypal.com → evil.example". */
 	mismatch?: string[];
+	/** The display name names a brand or site the address doesn't belong to: "PayPal", "paypal.com". */
+	spoof?: string;
+	/** Reply-To goes to another domain than From: the domain, and whether it is a freemail one. */
+	replyTo?: { domain: string; free: boolean };
+	/** Sites the links lead to other than the sender's (not for list mail). */
+	foreign?: string[];
+	/** Punycode domains (From or links): "xn--pypal-4ve.com". */
+	punycode?: string[];
 	/** Messages in the conversation, and whether the one before was ours. */
 	thread?: { count: number; lastOurs: boolean };
 }
 
 const FAILED = /^(fail|softfail|permerror)$/i;
 export const authFailed = (f: Facts) => Object.values(f.auth ?? {}).some((v) => FAILED.test(v));
+/** DKIM or DMARC passed: the mail really comes from the domain it names. */
+export const aligned = (f: Facts) => f.auth?.dkim === 'pass' || f.auth?.dmarc === 'pass';
+/** We wrote to them before (old facts: `known`). */
+export const wroteTo = (f: Facts) => (f.history ? f.history.sent > 0 : !!f.known);
 
-/** The facts as lines for the model (and for the phishing box in the reader). */
+/** What really points to phishing, as words (the phishing box in the reader). A sender who is new
+ *  to us is not one of them: most real mail comes from people we never wrote to. */
+export function signals(f: Facts): string[] {
+	const out: string[] = [];
+	const failed = Object.entries(f.auth ?? {}).filter(([, v]) => FAILED.test(v));
+	if (failed.length)
+		out.push(`sender check failed (${failed.map(([k]) => k.toUpperCase()).join(', ')})`);
+	if (f.spoof)
+		out.push(`the sender's name says "${f.spoof}" but the address belongs to another domain`);
+	for (const m of f.mismatch ?? []) out.push(`a link shows ${m.replace(' → ', ' but leads to ')}`);
+	if (f.replyTo?.free) out.push(`answers go to a freemail address (${f.replyTo.domain})`);
+	for (const d of f.punycode ?? []) out.push(`a disguised domain (${d})`);
+	return out;
+}
+
+const month = (iso: string) =>
+	new Date(iso).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+const times = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The facts as lines for the model. */
 export function factLines(f: Facts): string[] {
 	const out: string[] = [];
 	if (f.list) out.push('mailing-list headers (List-Unsubscribe / List-Id / Precedence)');
@@ -216,13 +256,41 @@ export function factLines(f: Facts): string[] {
 	if (auth.length)
 		out.push(`authentication: ${auth.map(([k, v]) => `${k.toUpperCase()} ${v}`).join(', ')}`);
 	if (f.ownDomain) out.push('sender domain = your own domain');
-	if (f.known != null)
-		out.push(f.known ? 'known contact (you wrote to them before)' : 'not a known contact');
+	const h = f.history;
+	if (h) {
+		if (h.sent) out.push(`you wrote to this address ${times(h.sent, 'time')}`);
+		if (h.fromDomain)
+			out.push(
+				`${times(h.fromDomain, 'earlier mail')} from this domain${h.since ? ` since ${month(h.since)}` : ''}${h.fromAddr ? `, ${h.fromAddr} from this address` : ''}`
+			);
+		else if (!h.sent) out.push('first mail from this sender (being new is normal, not suspicious)');
+	} else if (f.known) out.push('known contact (you wrote to them before)');
 	if (f.role === 'cc') out.push('you are in CC');
 	if (f.role === 'none') out.push('you are not in To or CC (BCC or a list)');
+	if (f.spoof) out.push(`the display name says "${f.spoof}" but the address is of another domain`);
+	if (f.replyTo)
+		out.push(
+			`replies go to another domain: ${f.replyTo.domain}${f.replyTo.free ? ' (freemail)' : ''}`
+		);
+	for (const d of f.punycode ?? []) out.push(`punycode (disguised) domain: ${d}`);
+	if (f.foreign?.length)
+		out.push(`links lead to other sites than the sender's domain: ${f.foreign.join(', ')}`);
 	for (const m of f.mismatch ?? [])
 		out.push(`a link's text shows ${m.replace(' → ', ' but it leads to ')}`);
 	return out;
+}
+
+/** Thresholds for P(phishing): low when something real points to it, high for a verified sender
+ *  we know, in between for a new sender with nothing suspicious. */
+export function phishingT(f: Facts): { warn: number; stop: number } {
+	if (signals(f).length) return { warn: T.warnPhishing, stop: T.stopPhishing };
+	const h = f.history;
+	const established = wroteTo(f) || f.ownDomain || (h?.fromDomain ?? 0) >= 2;
+	// a known sender whose links stay on their own site: only a very sure model warns (a
+	// compromised account sends links elsewhere)
+	if (established)
+		return f.foreign?.length ? { warn: 0.35, stop: 0.6 } : { warn: 0.85, stop: 0.95 };
+	return aligned(f) ? { warn: 0.6, stop: 0.8 } : { warn: 0.5, stop: 0.7 };
 }
 
 // ---------------------------------------------------------------- what to ask
@@ -233,15 +301,15 @@ const ACTION = ['Primary action', 'Urgency driver', 'Reply effort'];
 const asked = (a: Answers, names: string[]) => names.every((n) => n in a);
 
 /** Phishing, spam and bulk mail get only the first round (notes: "skipping saves real compute"). */
-const stops = (a: Answers) =>
-	(yes(a, 'Phishing') ?? 0) >= T.stopPhishing ||
+const stops = (a: Answers, f: Facts) =>
+	(yes(a, 'Phishing') ?? 0) >= phishingT(f).stop ||
 	(yes(a, 'Spam') ?? 0) >= T.stopSpam ||
 	pOf(a, 'Category', 'Newsletter/News', 'Advertisement') >= T.stopBulk;
 
 /** Every question that should be asked, given what is known so far. */
 function wanted(a: Answers, f: Facts): string[] {
 	const w = STAGE1.filter((n) => BY_NAME[n]);
-	if (!asked(a, w) || stops(a)) return w;
+	if (!asked(a, w) || stops(a, f)) return w;
 	w.push(...STAGE2);
 	if (pOf(a, 'Category', 'Transactions/Orders') >= T.branch) w.push('Transaction type');
 	if (pOf(a, 'Category', 'Notification/Account') >= T.branch) w.push('One-time code');
@@ -372,8 +440,40 @@ export function dueOf(a: Answers, at: Date): { due: Date | null; late: boolean }
 	}
 }
 
+/** The inbox tabs (like Apple Mail's categories). */
+export type Tab = 'personal' | 'orders' | 'news' | 'ads';
+export const TABS: { id: Tab; label: string }[] = [
+	{ id: 'personal', label: 'Personal' },
+	{ id: 'orders', label: 'Orders' },
+	{ id: 'news', label: 'News' },
+	{ id: 'ads', label: 'Ads' }
+];
+export const isTab = (v: unknown): v is Tab => TABS.some((t) => t.id === v);
+const CATEGORY_TAB: Record<string, Tab> = {
+	'Transactions/Orders': 'orders',
+	'Newsletter/News': 'news',
+	'Notification/Account': 'news',
+	Advertisement: 'ads'
+};
+
+/** Answers corrected by hand (`Phishing: false`, `Category: 'Work'`). */
+export type Labels = Record<string, string | boolean>;
+
+/** The model's answers with the hand-corrected ones on top (as certain answers). */
+export function corrected(a: Answers, labels: Labels = {}): Answers {
+	const out = { ...a };
+	for (const [name, v] of Object.entries(labels)) {
+		const q = BY_NAME[name];
+		if (!q) continue;
+		if (q.type === 'predicate') out[name] = v === true ? 1 : 0;
+		else if (q.type === 'score') out[name] = q.items.map((i) => (i.v === v ? 1 : 0));
+		else out[name] = Object.fromEntries(q.items.map((i) => [i.v, i.v === v ? 1 : 0]));
+	}
+	return out;
+}
+
 export interface Summary {
-	bucket: 'needs' | 'other';
+	tab: Tab;
 	due: string | null;
 	late: boolean;
 	/** Expected importance level (0 Negligible … 4 Critical). */
@@ -381,38 +481,99 @@ export interface Summary {
 	/** Short label of what to do ("Reply", "Pay"), if anything. */
 	action: string | null;
 	phishing: number;
+	/** Show the phishing warning (P(phishing) over this mail's threshold: `phishingT()`). */
+	warn: boolean;
 	spam: number;
 	code: boolean;
 	followUp: boolean;
 }
 
-/** What the list, the reader and the inbox split make of the answers. */
-export function summary(raw: Answers, f: Facts, at: string): Summary {
-	const a = effective(raw, f);
+/** What the list, the reader and the tabs make of the answers. `rule`: the tab the user gave the
+ *  sender ("Move sender to …"), which wins over everything but a phishing warning. */
+export function summary(
+	raw: Answers,
+	f: Facts,
+	at: string,
+	o: { labels?: Labels; rule?: Tab | null } = {}
+): Summary {
+	const a = effective(corrected(raw, o.labels), f);
 	const phishing = yes(a, 'Phishing') ?? 0;
 	const spam = yes(a, 'Spam') ?? 0;
 	const act = yes(a, 'Action needed?') ?? 0;
-	const bulk = pOf(a, 'Category', 'Newsletter/News', 'Advertisement', 'Notification/Account');
-	const relevance = expected(a, 'Relevance');
-	const other =
-		spam >= T.otherSpam ||
-		phishing >= T.otherPhishing ||
-		(act < T.action &&
-			(bulk >= T.otherBulk || (relevance != null && relevance < T.otherRelevance)));
+	const pt = phishingT(f);
+	const warn = phishing >= pt.warn;
+	const tab: Tab =
+		o.rule && !warn
+			? o.rule
+			: phishing >= pt.stop || spam >= T.adsSpam
+				? 'ads'
+				: f.invite || (wroteTo(f) && !f.list)
+					? 'personal'
+					: (CATEGORY_TAB[top(a, 'Category')?.value ?? ''] ?? 'personal');
 	const primary = act >= T.action ? top(a, 'Primary action')?.value : undefined;
 	const { due, late } =
-		act >= T.action || !other ? dueOf(a, new Date(at)) : { due: null, late: false };
+		act >= T.action || tab === 'personal' ? dueOf(a, new Date(at)) : { due: null, late: false };
 	return {
-		bucket: other ? 'other' : 'needs',
+		tab,
 		due: due?.toISOString() ?? null,
 		late,
 		importance: Math.round((expected(a, 'Importance') ?? 0) * 100) / 100,
 		action: (primary && ACTIONS[primary]) || null,
 		phishing,
+		warn,
 		spam,
 		code: (yes(a, 'One-time code') ?? 0) >= T.code,
 		followUp: (yes(a, 'Follow-up') ?? 0) >= T.followUp
 	};
+}
+
+// ---------------------------------------------------------------- summaries (optional, generative)
+
+/** One sentence about a mail from a small generative model (LM Studio's OpenAI-compatible chat API
+ *  on the same server as the decision model). */
+export async function summarise(
+	item: Pick<Item, 'state'>,
+	o: { url: string; model: string; key?: string; timeout?: number }
+): Promise<string> {
+	const s = JSON.parse(item.state) as {
+		email?: { from?: string; subject?: string; body?: string };
+	};
+	const e = s.email ?? {};
+	const res = await fetch(new URL('/v1/chat/completions', o.url), {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			...(o.key && { authorization: `Bearer ${o.key}` })
+		},
+		body: JSON.stringify({
+			model: o.model,
+			temperature: 0,
+			max_tokens: 80,
+			messages: [
+				{
+					role: 'system',
+					content:
+						'You summarise emails for their recipient in ONE short sentence (at most 20 words), written in the language of the email. Say what the sender wants from the recipient, with any date or amount; if nothing is wanted, say what it is about. No preamble, no quotes, no names of the recipient.'
+				},
+				{
+					role: 'user',
+					content: `From: ${e.from ?? ''}\nSubject: ${e.subject ?? ''}\n\n${(e.body ?? '').slice(0, 4000)}`
+				}
+			]
+		}),
+		signal: AbortSignal.timeout(o.timeout ?? 60_000)
+	});
+	const json = (await res.json().catch(() => null)) as {
+		choices?: { message?: { content?: string } }[];
+		error?: unknown;
+	} | null;
+	if (!res.ok) throw new Error(errorText(json?.error) || `${res.status} ${res.statusText}`);
+	return (json?.choices?.[0]?.message?.content ?? '')
+		.replace(/<think>[\s\S]*?(<\/think>|$)/g, '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.replace(/^["„“]|["“”]$/g, '')
+		.slice(0, 240);
 }
 
 /** "now", "today", "tomorrow", "Mon", "3 Dec"; "overdue" once it has passed. */
@@ -426,3 +587,41 @@ export function dueLabel(due: string, now = new Date()) {
 	if (days < 7) return d.toLocaleDateString('en-GB', { weekday: 'short' });
 	return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
+// ---------------------------------------------------------------- parcels (DHL tracking)
+
+/** A DHL parcel found in a mail, with its last status (server: `parcels.ts`). */
+export interface Parcel {
+	number: string;
+	/** DHL's status code: pre-transit, transit, delivered, failure, unknown. */
+	code?: string;
+	/** DHL's words for the status, the place and time of the last event. */
+	status?: string;
+	location?: string;
+	at?: string;
+	/** Expected delivery. */
+	eta?: string;
+	/** Why it couldn't be looked up ("not found yet"). */
+	error?: string;
+	checked?: string;
+}
+
+const PARCEL_WORDS: Record<string, string> = {
+	'pre-transit': 'announced',
+	transit: 'on the way',
+	delivered: 'delivered',
+	failure: 'problem'
+};
+/** "on the way · Thu", "delivered". */
+export function parcelLabel(p: Parcel, now = new Date()) {
+	const word = PARCEL_WORDS[p.code ?? ''] ?? (p.error ? 'not found yet' : 'waiting');
+	const eta = p.eta && p.code !== 'delivered' && new Date(p.eta) > now ? dueLabel(p.eta, now) : '';
+	return eta ? `${word} · ${eta}` : word;
+}
+/** DHL's tracking page for a number. */
+export const parcelHref = (n: string) =>
+	`https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=${encodeURIComponent(n)}`;
+
+/** A one-time code shows as expired 30 minutes after the mail came in. */
+export const codeExpired = (received: string, now = Date.now()) =>
+	now - new Date(received).getTime() > 30 * 60_000;

@@ -2,6 +2,7 @@
 // answers the questions about waiting mail while a tab is open; the answers go to the server, so
 // every device sees them. Whether this device has a model is a per-browser setting (localStorage).
 import { untrack } from 'svelte';
+import { toast } from 'svelte-sonner';
 import { api } from '#lib/data.svelte.ts';
 import { onMailChange } from '#modules/mail/mail.svelte.ts';
 import {
@@ -11,7 +12,9 @@ import {
 	decide,
 	localModel,
 	readResponse,
-	type Item
+	summarise,
+	type Item,
+	type Summary
 } from './triage.ts';
 
 const KEY = 'triage:device';
@@ -22,6 +25,8 @@ export interface Device {
 	model: string;
 	/** LM Studio can require an API token. */
 	key?: string;
+	/** A small generative model on the same server for one-line summaries (empty: none). */
+	summary?: string;
 }
 const DEFAULTS: Device = { on: false, url: DEFAULT_URL, model: DEFAULT_MODEL };
 function load(): Device {
@@ -51,7 +56,9 @@ export const triage = $state({
 	labels: 0,
 	error: null as string | null,
 	/** How long the last mail took (all rounds). */
-	ms: 0
+	ms: 0,
+	/** The summary model failed (triage goes on without summaries). */
+	summaryError: null as string | null
 });
 
 type Pending = { items: Item[]; waiting: number; done: number; labels: number };
@@ -95,7 +102,7 @@ async function run() {
 					continue;
 				}
 				triage.ms = Math.round(performance.now() - t0);
-				await api('/api/mail/triage', {
+				const s = await api<Summary>('/api/mail/triage', {
 					method: 'POST',
 					body: JSON.stringify({
 						msgid: item.msgid,
@@ -104,6 +111,7 @@ async function run() {
 						answers
 					})
 				});
+				if (device.summary && (s.tab === 'personal' || s.tab === 'orders')) await summary(item);
 				triage.done++;
 				triage.waiting = Math.max(0, triage.waiting - 1);
 			}
@@ -112,6 +120,35 @@ async function run() {
 		triage.error = explain(e);
 	} finally {
 		triage.running = false;
+	}
+}
+
+/** One sentence about a mail from the summary model; a failure doesn't stop the triage. */
+async function summary(item: Item) {
+	try {
+		const text = await summarise(item, {
+			url: device.url,
+			model: device.summary!,
+			key: device.key || undefined
+		});
+		triage.summaryError = null;
+		if (text)
+			await api('/api/mail/triage', {
+				method: 'POST',
+				body: JSON.stringify({ msgid: item.msgid, summary: text })
+			});
+	} catch (e) {
+		triage.summaryError = explain(e);
+	}
+}
+
+/** Copy a one-time code (list row, reader). */
+export async function copyCode(code: string) {
+	try {
+		await navigator.clipboard.writeText(code);
+		toast.success(`Copied ${code}`);
+	} catch {
+		toast.error("Couldn't copy the code");
 	}
 }
 

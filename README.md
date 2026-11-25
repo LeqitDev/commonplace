@@ -73,20 +73,22 @@ The container listens on port 3000 and is only reachable on the `proxy` network.
 - `typst-fonts/`
 - nightly `backups/` (the newest 14 are kept)
 
-| Env                               | Default | Meaning                                                                                                                                             |
-| --------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_DIR`                        | `/data` | database, uploads, mail cache, backups                                                                                                              |
-| `DB_PATH` / `MAIL_DB_PATH`        | unset   | put `commonplace.db` / `mail.db` somewhere other than `DATA_DIR`                                                                                    |
-| `MODULES`                         | `all`   | build arg: which optional modules are built (see [Modules](#modules-building-and-switching-parts-off))                                              |
-| `REQUIRE_AUTH_HEADER`             | unset   | `true` → 401 unless the request carries `Remote-User` (set by Authelia)                                                                             |
-| `TZ`                              | UTC     | server timezone (backups at 03:00, floating ICS times); set it to the timezone you use Commonplace in: recurring events are written to CalDAV in it |
-| `CALDAV_URL`                      | unset   | CalDAV calendar that holds the events and tasks (see below)                                                                                         |
-| `CALDAV_USER` / `CALDAV_PASSWORD` | unset   | its login (Basic auth)                                                                                                                              |
-| `CALDAV_TASKS_URL`                | unset   | a second calendar for the tasks, if the server keeps them apart                                                                                     |
-| `BODY_SIZE_LIMIT`                 | `100M`  | max upload size                                                                                                                                     |
-| `CONNECTION_IDLE_TIMEOUT`         | `255`   | seconds before Bun drops a response that hasn't been sent yet (Bun's own default is 10, the Dockerfile sets the maximum so slow syncs get through)  |
-| `MAIL_TLS_INSECURE`               | unset   | `true` → accept self-signed certificates of mail servers (own server, tests)                                                                        |
-| `PROTOCOL_HEADER` / `HOST_HEADER` | unset   | set to `x-forwarded-proto` / `x-forwarded-host` if needed                                                                                           |
+| Env                                           | Default | Meaning                                                                                                                                             |
+| --------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_DIR`                                    | `/data` | database, uploads, mail cache, backups                                                                                                              |
+| `DB_PATH` / `MAIL_DB_PATH`                    | unset   | put `commonplace.db` / `mail.db` somewhere other than `DATA_DIR`                                                                                    |
+| `MODULES`                                     | `all`   | build arg: which optional modules are built (see [Modules](#modules-building-and-switching-parts-off))                                              |
+| `REQUIRE_AUTH_HEADER`                         | unset   | `true` → 401 unless the request carries `Remote-User` (set by Authelia)                                                                             |
+| `TZ`                                          | UTC     | server timezone (backups at 03:00, floating ICS times); set it to the timezone you use Commonplace in: recurring events are written to CalDAV in it |
+| `CALDAV_URL`                                  | unset   | CalDAV calendar that holds the events and tasks (see below)                                                                                         |
+| `CALDAV_USER` / `CALDAV_PASSWORD`             | unset   | its login (Basic auth)                                                                                                                              |
+| `CALDAV_TASKS_URL`                            | unset   | a second calendar for the tasks, if the server keeps them apart                                                                                     |
+| `BODY_SIZE_LIMIT`                             | `100M`  | max upload size                                                                                                                                     |
+| `CONNECTION_IDLE_TIMEOUT`                     | `255`   | seconds before Bun drops a response that hasn't been sent yet (Bun's own default is 10, the Dockerfile sets the maximum so slow syncs get through)  |
+| `MAIL_TLS_INSECURE`                           | unset   | `true` → accept self-signed certificates of mail servers (own server, tests)                                                                        |
+| `DHL_API_KEY`                                 | unset   | key of an app on developer.dhl.com with the "Parcel DE Tracking (Post & Parcel Germany)" API: the mail triage shows the status of DHL parcels       |
+| `DHL_TRACKING_USER` / `DHL_TRACKING_PASSWORD` | unset   | what that API wants as `appname` / `password` in its requests (see DHL's page for the API)                                                          |
+| `PROTOCOL_HEADER` / `HOST_HEADER`             | unset   | set to `x-forwarded-proto` / `x-forwarded-host` if needed                                                                                           |
 
 Upgrading an existing instance: read [`MIGRATIONS.md`](MIGRATIONS.md) (newest first) for changes to stored data or the setup.
 

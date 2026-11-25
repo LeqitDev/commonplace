@@ -10,6 +10,7 @@ import {
 	watchAll
 } from './server/mail.ts';
 import { searchMail, threadInfo } from './server/mailstore.ts';
+import { startParcels } from './server/parcels.ts';
 import { threadProject } from './mail.ts';
 
 /** What makes a changed account sign in again (the sync is the connection test, and sends what is queued). */
@@ -22,6 +23,7 @@ export default defineServerModule({
 		sync();
 		setInterval(sync, 300_000); // the safety net: new inbox mail comes through IDLE
 		watchAll();
+		startParcels(); // DHL tracking of parcels the triage found (only with DHL_API_KEY)
 	},
 	onPatch(coll, id, patch, doc) {
 		if (coll === 'mail_accounts' && LOGIN.some((k) => k in patch)) {

@@ -1,188 +1,245 @@
 [
-  {
-    "type": "predicate",
-    "name": "Phishing",
-    "instructions": "Does this email look like phishing or a scam? Signs: asks to log in, verify an account or pay via a link; sender name does not match the address domain; threats of account suspension or legal action; unexpected attachments or prize claims.",
-    "items": []
-  },
-  {
-    "type": "predicate",
-    "name": "Spam",
-    "instructions": "Is this unsolicited bulk email the recipient never signed up for? Newsletters and promotions from services the recipient actually uses are NOT spam.",
-    "items": []
-  },
-  {
-    "type": "choice",
-    "name": "Category",
-    "instructions": "Which category fits this email best?",
-    "items": [
-      {"v": "Personal", "d": "Written by a friend, family member or acquaintance about private life"},
-      {"v": "Work", "d": "About the recipient's job: colleagues, projects, teaching duties, contracts, timesheets"},
-      {"v": "Study/University", "d": "About the recipient's own studies: courses, exams, grades, enrollment, university administration"},
-      {"v": "Newsletter/News", "d": "Recurring editorial content, digests or news the recipient subscribed to"},
-      {"v": "Advertisement", "d": "Promotions, offers, discounts or marketing from a company"},
-      {"v": "Transactions/Orders", "d": "Orders, shipping, invoices, receipts, payments, refunds, subscriptions"},
-      {"v": "Notification/Account", "d": "Automated service notices: security alerts, login codes, password resets, account changes, GitHub/CI, social media"},
-      {"v": "Other", "d": "Fits none of the above"}
-    ]
-  },
-  {
-    "type": "choice",
-    "name": "Sender",
-    "instructions": "Who is the email mainly from, from the recipient's point of view?",
-    "items": [
-      {"v": "Colleague", "d": "Someone at the recipient's workplace without authority over them"},
-      {"v": "Supervisor/Manager", "d": "Someone the recipient reports to or who assigns their work"},
-      {"v": "University/Administration", "d": "Lecturers, examination office, student services, HR or other institutional staff"},
-      {"v": "Fellow student", "d": "Another student, e.g. course or group-work partner"},
-      {"v": "Friend/Family", "d": "Someone from the recipient's private life"},
-      {"v": "External contact", "d": "A person outside the recipient's organization writing personally (client, partner, landlord)"},
-      {"v": "Company/Service", "d": "A company or organization, including its support staff, newsletters and marketing"},
-      {"v": "Automated system", "d": "Machine-generated with no human author (noreply, alerts, receipts, CI, codes)"},
-      {"v": "Unknown", "d": "Cannot be determined"}
-    ]
-  },
-  {
-    "type": "choice",
-    "name": "Recipient role",
-    "instructions": "What is the recipient's role in this email?",
-    "items": [
-      {"v": "Direct addressee", "d": "Written specifically to the recipient, one-to-one"},
-      {"v": "Group member", "d": "Sent to a small group or team; the recipient is expected to take part"},
-      {"v": "FYI only", "d": "The recipient is only kept informed (e.g. CC); others are expected to act"},
-      {"v": "Mass mailing", "d": "Mailing list, newsletter or broadcast to many people"}
-    ]
-  },
-  {
-    "type": "score",
-    "name": "Relevance",
-    "instructions": "How relevant is this email to the recipient personally?",
-    "items": [
-      {"v": "Irrelevant", "d": "Nothing to do with the recipient's life, work, studies or interests"},
-      {"v": "Marginal", "d": "Loosely related; safe to skip"},
-      {"v": "Somewhat relevant", "d": "Might be worth a quick look"},
-      {"v": "Relevant", "d": "The recipient will want to read it"},
-      {"v": "Highly relevant", "d": "Directly concerns the recipient personally"}
-    ]
-  },
-  {
-    "type": "predicate",
-    "name": "Action needed?",
-    "instructions": "Does the email ask or clearly expect the recipient personally to do something (reply, decide, pay, attend, complete a task)? Generic marketing calls-to-action like 'Shop now' or 'Read more' do not count.",
-    "items": []
-  },
-  {
-    "type": "choice",
-    "name": "Primary action",
-    "instructions": "What is the main thing the recipient has to do?",
-    "items": [
-      {"v": "Reply", "d": "Answer a question or confirm something"},
-      {"v": "Review", "d": "Read and give feedback on a document, code or proposal"},
-      {"v": "Decide/Approve", "d": "Make a choice or give approval"},
-      {"v": "Complete a task", "d": "Do work outside email: prepare, fix, submit, register"},
-      {"v": "Make a payment", "d": "Pay an invoice, fee or outstanding amount"},
-      {"v": "Attend/RSVP", "d": "Attend or respond to a meeting or event invitation"},
-      {"v": "Forward/Share", "d": "Pass the information on to someone else"},
-      {"v": "Verify/Log in", "d": "Use a code or confirmation link, or check an account"},
-      {"v": "No action", "d": "Read only / FYI"}
-    ]
-  },
-  {
-    "type": "choice",
-    "name": "Attention",
-    "instructions": "Today is {{weekday}}, {{today}}; the email was received {{received}}. By when does the recipient need to read or act on this email at the latest?",
-    "items": [
-      {"v": "Immediately", "d": "Within about an hour, e.g. a login code, a meeting starting soon, an ongoing incident"},
-      {"v": "By the end of today", "d": ""},
-      {"v": "By the next business day", "d": ""},
-      {"v": "Within 2-3 business days", "d": ""},
-      {"v": "Within a week", "d": ""},
-      {"v": "Later / no deadline", "d": "No time pressure"},
-      {"v": "Already too late", "d": "The deadline or event has passed, or the code/link has expired"}
-    ]
-  },
-  {
-    "type": "score",
-    "name": "Importance",
-    "instructions": "Regardless of timing: how bad would it be if the recipient never dealt with this email?",
-    "items": [
-      {"v": "Negligible", "d": "Nothing happens"},
-      {"v": "Minor", "d": "Small inconvenience or a missed nice-to-have"},
-      {"v": "Moderate", "d": "Noticeable consequences, e.g. an annoyed colleague, a small fee, a missed opportunity"},
-      {"v": "High", "d": "Significant consequences for work, studies, money or relationships"},
-      {"v": "Critical", "d": "Serious harm: lost money, failed exam or contract, security breach, safety risk"}
-    ]
-  },
-  {
-    "type": "choice",
-    "name": "Urgency driver",
-    "instructions": "What is the main reason this email needs attention?",
-    "items": [
-      {"v": "Deadline", "d": "A date by which something must be done"},
-      {"v": "Money", "d": "Payments, charges, refunds, fees"},
-      {"v": "Security/Account", "d": "Suspicious login, password, account access"},
-      {"v": "Health/Safety", "d": "Risk to someone's health or safety"},
-      {"v": "Someone is waiting", "d": "A person is blocked or waiting on the recipient"},
-      {"v": "Formal obligation", "d": "Legal, contractual, academic or administrative requirement"},
-      {"v": "Other", "d": "Another reason"},
-      {"v": "None", "d": "The email does not need attention"}
-    ]
-  },
-  {
-    "type": "score",
-    "name": "Reply effort",
-    "instructions": "If the recipient should reply, how much effort will the reply take?",
-    "items": [
-      {"v": "No reply needed", "d": ""},
-      {"v": "Trivial", "d": "A one-liner, under 2 minutes"},
-      {"v": "Short", "d": "A few sentences, about 5-10 minutes"},
-      {"v": "Substantial", "d": "Requires thought, looking things up or checking with others"},
-      {"v": "Major", "d": "Needs research, coordination or a meeting first"}
-    ]
-  },
-  {
-    "type": "predicate",
-    "name": "Follow-up",
-    "instructions": "Is this a reminder, follow-up or escalation of an earlier message (e.g. 'gentle reminder', 'second notice', 'still waiting for')?",
-    "items": []
-  },
-  {
-    "type": "predicate",
-    "name": "Calendar",
-    "instructions": "Does the email contain a meeting, appointment or event with a specific date and time that the recipient might add to a calendar? A deadline alone does not count.",
-    "items": []
-  },
-  {
-    "type": "choice",
-    "name": "Event type",
-    "instructions": "If the email is about a calendar event, what kind of update is it?",
-    "items": [
-      {"v": "New invitation", "d": "A new meeting, appointment or event is proposed"},
-      {"v": "Confirmation", "d": "An existing plan or booking is confirmed"},
-      {"v": "Change/Reschedule", "d": "Time, place or details of a known event changed"},
-      {"v": "Cancellation", "d": "An event is cancelled"},
-      {"v": "Reminder", "d": "Reminder of an already known event"},
-      {"v": "Not about an event", "d": ""}
-    ]
-  },
-  {
-    "type": "choice",
-    "name": "Transaction type",
-    "instructions": "If the email is about a purchase or payment, what stage is it?",
-    "items": [
-      {"v": "Order confirmation", "d": ""},
-      {"v": "Shipping/Delivery", "d": "Dispatch, tracking, delivery or pickup notice"},
-      {"v": "Invoice/Receipt", "d": "Proof of a completed payment or a bill"},
-      {"v": "Payment due/Reminder", "d": "Payment request, overdue notice, dunning"},
-      {"v": "Refund/Return", "d": ""},
-      {"v": "Subscription/Renewal", "d": "Renewal, trial ending, price change, cancellation"},
-      {"v": "Not a transaction", "d": ""}
-    ]
-  },
-  {
-    "type": "predicate",
-    "name": "One-time code",
-    "instructions": "Does the email contain a one-time code, a verification or magic-login link, or a password-reset link?",
-    "items": []
-  }
+	{
+		"type": "predicate",
+		"name": "Phishing",
+		"instructions": "Does this email look like phishing or a scam? Signs: asks to log in, verify an account or pay via a link; sender name does not match the address domain; threats of account suspension or legal action; unexpected attachments or prize claims. A sender the recipient never wrote to or never heard from is NOT by itself a sign: judge what the email asks for and the signals listed in facts. Verification codes and security notices from a verified sender are normal.",
+		"items": []
+	},
+	{
+		"type": "predicate",
+		"name": "Spam",
+		"instructions": "Is this unsolicited bulk email the recipient never signed up for? Newsletters and promotions from services the recipient actually uses are NOT spam.",
+		"items": []
+	},
+	{
+		"type": "choice",
+		"name": "Category",
+		"instructions": "Which category fits this email best?",
+		"items": [
+			{
+				"v": "Personal",
+				"d": "Written by a friend, family member or acquaintance about private life"
+			},
+			{
+				"v": "Work",
+				"d": "About the recipient's job: colleagues, projects, teaching duties, contracts, timesheets"
+			},
+			{
+				"v": "Study/University",
+				"d": "About the recipient's own studies: courses, exams, grades, enrollment, university administration"
+			},
+			{
+				"v": "Newsletter/News",
+				"d": "Recurring editorial content, digests or news the recipient subscribed to"
+			},
+			{ "v": "Advertisement", "d": "Promotions, offers, discounts or marketing from a company" },
+			{
+				"v": "Transactions/Orders",
+				"d": "Orders, shipping, invoices, receipts, payments, refunds, subscriptions"
+			},
+			{
+				"v": "Notification/Account",
+				"d": "Automated service notices: security alerts, login codes, password resets, account changes, GitHub/CI, social media"
+			},
+			{ "v": "Other", "d": "Fits none of the above" }
+		]
+	},
+	{
+		"type": "choice",
+		"name": "Sender",
+		"instructions": "Who is the email mainly from, from the recipient's point of view?",
+		"items": [
+			{ "v": "Colleague", "d": "Someone at the recipient's workplace without authority over them" },
+			{
+				"v": "Supervisor/Manager",
+				"d": "Someone the recipient reports to or who assigns their work"
+			},
+			{
+				"v": "University/Administration",
+				"d": "Lecturers, examination office, student services, HR or other institutional staff"
+			},
+			{ "v": "Fellow student", "d": "Another student, e.g. course or group-work partner" },
+			{ "v": "Friend/Family", "d": "Someone from the recipient's private life" },
+			{
+				"v": "External contact",
+				"d": "A person outside the recipient's organization writing personally (client, partner, landlord)"
+			},
+			{
+				"v": "Company/Service",
+				"d": "A company or organization, including its support staff, newsletters and marketing"
+			},
+			{
+				"v": "Automated system",
+				"d": "Machine-generated with no human author (noreply, alerts, receipts, CI, codes)"
+			},
+			{ "v": "Unknown", "d": "Cannot be determined" }
+		]
+	},
+	{
+		"type": "choice",
+		"name": "Recipient role",
+		"instructions": "What is the recipient's role in this email?",
+		"items": [
+			{ "v": "Direct addressee", "d": "Written specifically to the recipient, one-to-one" },
+			{
+				"v": "Group member",
+				"d": "Sent to a small group or team; the recipient is expected to take part"
+			},
+			{
+				"v": "FYI only",
+				"d": "The recipient is only kept informed (e.g. CC); others are expected to act"
+			},
+			{ "v": "Mass mailing", "d": "Mailing list, newsletter or broadcast to many people" }
+		]
+	},
+	{
+		"type": "score",
+		"name": "Relevance",
+		"instructions": "How relevant is this email to the recipient personally?",
+		"items": [
+			{
+				"v": "Irrelevant",
+				"d": "Nothing to do with the recipient's life, work, studies or interests"
+			},
+			{ "v": "Marginal", "d": "Loosely related; safe to skip" },
+			{ "v": "Somewhat relevant", "d": "Might be worth a quick look" },
+			{ "v": "Relevant", "d": "The recipient will want to read it" },
+			{ "v": "Highly relevant", "d": "Directly concerns the recipient personally" }
+		]
+	},
+	{
+		"type": "predicate",
+		"name": "Action needed?",
+		"instructions": "Does the email ask or clearly expect the recipient personally to do something (reply, decide, pay, attend, complete a task)? Generic marketing calls-to-action like 'Shop now' or 'Read more' do not count.",
+		"items": []
+	},
+	{
+		"type": "choice",
+		"name": "Primary action",
+		"instructions": "What is the main thing the recipient has to do?",
+		"items": [
+			{ "v": "Reply", "d": "Answer a question or confirm something" },
+			{ "v": "Review", "d": "Read and give feedback on a document, code or proposal" },
+			{ "v": "Decide/Approve", "d": "Make a choice or give approval" },
+			{ "v": "Complete a task", "d": "Do work outside email: prepare, fix, submit, register" },
+			{ "v": "Make a payment", "d": "Pay an invoice, fee or outstanding amount" },
+			{ "v": "Attend/RSVP", "d": "Attend or respond to a meeting or event invitation" },
+			{ "v": "Forward/Share", "d": "Pass the information on to someone else" },
+			{ "v": "Verify/Log in", "d": "Use a code or confirmation link, or check an account" },
+			{ "v": "No action", "d": "Read only / FYI" }
+		]
+	},
+	{
+		"type": "choice",
+		"name": "Attention",
+		"instructions": "Today is {{weekday}}, {{today}}; the email was received {{received}}. By when does the recipient need to read or act on this email at the latest?",
+		"items": [
+			{
+				"v": "Immediately",
+				"d": "Within about an hour, e.g. a login code, a meeting starting soon, an ongoing incident"
+			},
+			{ "v": "By the end of today", "d": "" },
+			{ "v": "By the next business day", "d": "" },
+			{ "v": "Within 2-3 business days", "d": "" },
+			{ "v": "Within a week", "d": "" },
+			{ "v": "Later / no deadline", "d": "No time pressure" },
+			{
+				"v": "Already too late",
+				"d": "The deadline or event has passed, or the code/link has expired"
+			}
+		]
+	},
+	{
+		"type": "score",
+		"name": "Importance",
+		"instructions": "Regardless of timing: how bad would it be if the recipient never dealt with this email?",
+		"items": [
+			{ "v": "Negligible", "d": "Nothing happens" },
+			{ "v": "Minor", "d": "Small inconvenience or a missed nice-to-have" },
+			{
+				"v": "Moderate",
+				"d": "Noticeable consequences, e.g. an annoyed colleague, a small fee, a missed opportunity"
+			},
+			{ "v": "High", "d": "Significant consequences for work, studies, money or relationships" },
+			{
+				"v": "Critical",
+				"d": "Serious harm: lost money, failed exam or contract, security breach, safety risk"
+			}
+		]
+	},
+	{
+		"type": "choice",
+		"name": "Urgency driver",
+		"instructions": "What is the main reason this email needs attention?",
+		"items": [
+			{ "v": "Deadline", "d": "A date by which something must be done" },
+			{ "v": "Money", "d": "Payments, charges, refunds, fees" },
+			{ "v": "Security/Account", "d": "Suspicious login, password, account access" },
+			{ "v": "Health/Safety", "d": "Risk to someone's health or safety" },
+			{ "v": "Someone is waiting", "d": "A person is blocked or waiting on the recipient" },
+			{
+				"v": "Formal obligation",
+				"d": "Legal, contractual, academic or administrative requirement"
+			},
+			{ "v": "Other", "d": "Another reason" },
+			{ "v": "None", "d": "The email does not need attention" }
+		]
+	},
+	{
+		"type": "score",
+		"name": "Reply effort",
+		"instructions": "If the recipient should reply, how much effort will the reply take?",
+		"items": [
+			{ "v": "No reply needed", "d": "" },
+			{ "v": "Trivial", "d": "A one-liner, under 2 minutes" },
+			{ "v": "Short", "d": "A few sentences, about 5-10 minutes" },
+			{ "v": "Substantial", "d": "Requires thought, looking things up or checking with others" },
+			{ "v": "Major", "d": "Needs research, coordination or a meeting first" }
+		]
+	},
+	{
+		"type": "predicate",
+		"name": "Follow-up",
+		"instructions": "Is this a reminder, follow-up or escalation of an earlier message (e.g. 'gentle reminder', 'second notice', 'still waiting for')?",
+		"items": []
+	},
+	{
+		"type": "predicate",
+		"name": "Calendar",
+		"instructions": "Does the email contain a meeting, appointment or event with a specific date and time that the recipient might add to a calendar? A deadline alone does not count.",
+		"items": []
+	},
+	{
+		"type": "choice",
+		"name": "Event type",
+		"instructions": "If the email is about a calendar event, what kind of update is it?",
+		"items": [
+			{ "v": "New invitation", "d": "A new meeting, appointment or event is proposed" },
+			{ "v": "Confirmation", "d": "An existing plan or booking is confirmed" },
+			{ "v": "Change/Reschedule", "d": "Time, place or details of a known event changed" },
+			{ "v": "Cancellation", "d": "An event is cancelled" },
+			{ "v": "Reminder", "d": "Reminder of an already known event" },
+			{ "v": "Not about an event", "d": "" }
+		]
+	},
+	{
+		"type": "choice",
+		"name": "Transaction type",
+		"instructions": "If the email is about a purchase or payment, what stage is it?",
+		"items": [
+			{ "v": "Order confirmation", "d": "" },
+			{ "v": "Shipping/Delivery", "d": "Dispatch, tracking, delivery or pickup notice" },
+			{ "v": "Invoice/Receipt", "d": "Proof of a completed payment or a bill" },
+			{ "v": "Payment due/Reminder", "d": "Payment request, overdue notice, dunning" },
+			{ "v": "Refund/Return", "d": "" },
+			{ "v": "Subscription/Renewal", "d": "Renewal, trial ending, price change, cancellation" },
+			{ "v": "Not a transaction", "d": "" }
+		]
+	},
+	{
+		"type": "predicate",
+		"name": "One-time code",
+		"instructions": "Does the email contain a one-time code, a verification or magic-login link, or a password-reset link?",
+		"items": []
+	}
 ]

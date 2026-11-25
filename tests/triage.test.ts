@@ -157,6 +157,16 @@ describe('what is asked when', () => {
 		// newsletter and advertisement count together
 		const bulk = { ...pick('Category', 'Other', 0.1), 'Newsletter/News': 0.3, Advertisement: 0.3 };
 		expect(t.nextQuestions({ ...stage1, Category: bulk }, {})).toEqual([]);
+		// a verified sender we know, nothing suspicious: a 0.7 doesn't cut the later rounds
+		const known: t.Facts = {
+			auth: { dkim: 'pass' },
+			history: { sent: 0, fromAddr: 9, fromDomain: 9 }
+		};
+		expect(t.nextQuestions({ ...stage1, Phishing: 0.7 }, known)).toContain('Action needed?');
+		// … but it does when a real sign points to phishing
+		expect(t.nextQuestions({ ...stage1, Phishing: 0.7 }, { ...known, spoof: 'PayPal' })).toEqual(
+			[]
+		);
 	});
 	test('second round with the branch of the category; third round with action and calendar', () => {
 		expect(t.nextQuestions(stage1, {})).toEqual([
@@ -229,10 +239,11 @@ describe('reading the answers', () => {
 		Importance: level('Importance', 3),
 		'Follow-up': 0.7
 	};
-	test('a colleague waiting for an answer: needs you, due Monday', () => {
+	test('a colleague waiting for an answer: Personal, due Monday', () => {
 		const s = t.summary(base, {}, new Date(at).toISOString());
 		expect(s).toMatchObject({
-			bucket: 'needs',
+			tab: 'personal',
+			warn: false,
 			action: 'Reply',
 			importance: 3,
 			followUp: true,
@@ -245,22 +256,47 @@ describe('reading the answers', () => {
 		expect(t.dueLabel(s.due!, new Date('2026-11-23T10:00:00'))).toBe('today');
 		expect(t.dueLabel(s.due!, new Date('2026-11-24T10:00:00'))).toBe('overdue');
 	});
-	test('newsletters, ads, likely spam and phishing go to Other; a code is marked', () => {
-		const news = {
+	test('tabs from the category; spam and phishing go to Ads; a code is marked', () => {
+		const cat = (c: string) => ({
 			...base,
 			'Action needed?': 0.1,
-			Category: pick('Category', 'Newsletter/News', 0.8)
-		};
-		expect(t.summary(news, {}, at).bucket).toBe('other');
-		expect(t.summary({ ...base, Spam: 0.85 }, {}, at).bucket).toBe('other');
-		expect(t.summary({ ...base, Phishing: 0.6 }, {}, at)).toMatchObject({
-			bucket: 'other',
+			Category: pick('Category', c, 0.8)
+		});
+		expect(t.summary(cat('Newsletter/News'), {}, at).tab).toBe('news');
+		expect(t.summary(cat('Notification/Account'), {}, at).tab).toBe('news');
+		expect(t.summary(cat('Transactions/Orders'), {}, at).tab).toBe('orders');
+		expect(t.summary(cat('Advertisement'), {}, at).tab).toBe('ads');
+		expect(t.summary(cat('Study/University'), {}, at).tab).toBe('personal');
+		expect(t.summary({ ...base, Spam: 0.85 }, {}, at).tab).toBe('ads');
+		expect(t.summary({ ...base, Phishing: 0.6 }, { spoof: 'PayPal' }, at)).toMatchObject({
+			tab: 'ads',
+			warn: true,
 			phishing: 0.6
 		});
-		// irrelevant and nothing to do
+		// a new sender without signs: warned only from 0.5, Ads from 0.7
+		expect(t.summary({ ...base, Phishing: 0.4 }, {}, at).warn).toBe(false);
+		expect(t.summary({ ...base, Phishing: 0.6 }, {}, at)).toMatchObject({
+			warn: true,
+			tab: 'personal'
+		});
+		// someone we wrote to and an invitation are Personal whatever the category
+		const ad = cat('Advertisement');
+		expect(t.summary(ad, { history: { sent: 2, fromAddr: 3, fromDomain: 3 } }, at).tab).toBe(
+			'personal'
+		);
+		expect(t.summary(ad, { invite: 'REQUEST' }, at).tab).toBe('personal');
+		// the sender rule wins, but not over a warning
+		expect(t.summary(ad, {}, at, { rule: 'news' }).tab).toBe('news');
 		expect(
-			t.summary({ ...base, 'Action needed?': 0.2, Relevance: level('Relevance', 1) }, {}, at).bucket
-		).toBe('other');
+			t.summary({ ...ad, Phishing: 0.9 }, { mismatch: ['a.com → b.example'] }, at, { rule: 'news' })
+				.tab
+		).toBe('ads');
+		// corrections count at once: "Not phishing", another category
+		const phish = { ...base, Phishing: 0.9 };
+		expect(
+			t.summary(phish, { spoof: 'PayPal' }, at, { labels: { Phishing: false } })
+		).toMatchObject({ warn: false, tab: 'personal' });
+		expect(t.summary(base, {}, at, { labels: { Category: 'Advertisement' } }).tab).toBe('ads');
 		expect(t.summary({ ...base, 'One-time code': 0.9 }, {}, at).code).toBe(true);
 		const late = t.summary({ ...base, Attention: pick('Attention', 'Already too late') }, {}, at);
 		expect(late).toMatchObject({ due: null, late: true });
@@ -279,23 +315,77 @@ describe('reading the answers', () => {
 		// the stored answers stay as the model gave them
 		expect(t.top(a, 'Sender')?.value).toBe('Colleague');
 	});
-	test('fact lines', () => {
+	test('fact lines: a new sender is no warning sign', () => {
 		expect(
 			t.factLines({
 				list: true,
 				auth: { spf: 'pass', dkim: 'fail' },
 				role: 'cc',
-				known: false,
+				history: { sent: 0, fromAddr: 0, fromDomain: 0 },
 				mismatch: ['paypal.com → evil.example']
 			})
 		).toEqual([
 			'mailing-list headers (List-Unsubscribe / List-Id / Precedence)',
 			'authentication: SPF pass, DKIM fail',
-			'not a known contact',
+			'first mail from this sender (being new is normal, not suspicious)',
 			'you are in CC',
 			"a link's text shows paypal.com but it leads to evil.example"
 		]);
+		expect(
+			t.factLines({
+				history: { sent: 3, fromAddr: 2, fromDomain: 12, since: '2026-03-02T09:00:00Z' },
+				spoof: 'PayPal',
+				replyTo: { domain: 'gmail.com', free: true },
+				punycode: ['xn--pple-43d.com'],
+				foreign: ['evil.example']
+			})
+		).toEqual([
+			'you wrote to this address 3 times',
+			'12 earlier mails from this domain since Mar 2026, 2 from this address',
+			'the display name says "PayPal" but the address is of another domain',
+			'replies go to another domain: gmail.com (freemail)',
+			'punycode (disguised) domain: xn--pple-43d.com',
+			"links lead to other sites than the sender's domain: evil.example"
+		]);
+		// old facts still read
+		expect(t.factLines({ known: true })).toEqual(['known contact (you wrote to them before)']);
 		expect(t.authFailed({ auth: { spf: 'pass', dkim: 'fail' } })).toBe(true);
+	});
+	test('signals and thresholds', () => {
+		expect(t.signals({ known: false, history: { sent: 0, fromAddr: 0, fromDomain: 0 } })).toEqual(
+			[]
+		);
+		expect(
+			t.signals({
+				auth: { spf: 'softfail', dkim: 'pass' },
+				spoof: 'PayPal',
+				replyTo: { domain: 'x.example', free: false },
+				punycode: ['xn--a.com']
+			})
+		).toEqual([
+			'sender check failed (SPF)',
+			'the sender\'s name says "PayPal" but the address belongs to another domain',
+			'a disguised domain (xn--a.com)'
+		]);
+		const h = (n: number, sent = 0) => ({ history: { sent, fromAddr: n, fromDomain: n } });
+		expect(t.phishingT({ spoof: 'PayPal', ...h(10) })).toEqual({ warn: 0.3, stop: 0.5 });
+		expect(t.phishingT(h(10))).toEqual({ warn: 0.85, stop: 0.95 });
+		expect(t.phishingT({ ...h(0, 1) })).toEqual({ warn: 0.85, stop: 0.95 });
+		expect(t.phishingT({ ...h(10), foreign: ['x.click'] })).toEqual({ warn: 0.35, stop: 0.6 });
+		expect(t.phishingT({ auth: { dkim: 'pass' } })).toEqual({ warn: 0.6, stop: 0.8 });
+		expect(t.phishingT({})).toEqual({ warn: 0.5, stop: 0.7 });
+	});
+	test('codes, parcels', () => {
+		expect(t.codeExpired('2026-11-25T10:00:00Z', Date.parse('2026-11-25T10:20:00Z'))).toBe(false);
+		expect(t.codeExpired('2026-11-25T10:00:00Z', Date.parse('2026-11-25T10:31:00Z'))).toBe(true);
+		const now = new Date('2026-11-25T10:00:00');
+		expect(t.parcelLabel({ number: '1', code: 'transit', eta: '2026-11-26T12:00:00' }, now)).toBe(
+			'on the way · tomorrow'
+		);
+		expect(t.parcelLabel({ number: '1', code: 'delivered', eta: '2026-11-26T12:00:00' }, now)).toBe(
+			'delivered'
+		);
+		expect(t.parcelLabel({ number: '1', error: 'not found yet' }, now)).toBe('not found yet');
 	});
 });
 
@@ -372,27 +462,119 @@ describe('facts, waiting mail, answers and labels (server)', () => {
 			}
 		});
 		const p = await PostalMime.parse(raw);
-		const f = tri.factsOf(p, 'noreply@paypa1.com', own, new Set([own]));
+		const f = tri.factsOf(
+			p,
+			{ name: 'PayPal', address: 'noreply@paypa1.com' },
+			own,
+			new Set([own]),
+			{
+				links: ['https://xn--pypal-4ve.com/login', 'https://paypa1.com/x']
+			}
+		);
 		expect(f).toMatchObject({
 			list: true,
 			auto: true,
 			role: 'cc',
 			recipients: 2,
-			known: false,
-			auth: { spf: 'pass', dkim: 'fail', dmarc: 'fail' }
+			history: { sent: 0, fromAddr: 0, fromDomain: 0 },
+			auth: { spf: 'pass', dkim: 'fail', dmarc: 'fail' },
+			spoof: 'PayPal',
+			punycode: ['xn--pypal-4ve.com']
 		});
 		expect(f.ownDomain).toBeUndefined();
+		expect(f.foreign).toBeUndefined(); // list mail
 		const g = tri.factsOf(
-			await PostalMime.parse(await eml({ text: 'x' })),
-			'erika@uni.example',
+			await PostalMime.parse(await eml({ text: 'x', replyTo: 'claims@gmail.com' })),
+			{ name: 'Erika', address: 'erika@uni.example' },
 			own,
-			new Set([own])
+			new Set([own]),
+			{ links: ['https://sharepoint-docs.click/x', 'https://campus.uni.example/'] }
 		);
-		expect(g).toMatchObject({ ownDomain: true, role: 'to' });
+		expect(g).toMatchObject({
+			ownDomain: true,
+			role: 'to',
+			replyTo: { domain: 'gmail.com', free: true },
+			foreign: ['sharepoint-docs.click']
+		});
 		expect(g.list).toBeUndefined();
+		expect(g.spoof).toBeUndefined();
 	});
 
-	test('pending → state → answers → split inbox → labels', async () => {
+	test('spoofed names, codes, DHL numbers, DHL answers', () => {
+		expect(tri.spoofOf('PayPal', 'service@paypal.de')).toBeUndefined();
+		expect(tri.spoofOf('PayPal Service', 'x@account-verify.top')).toBe('PayPal');
+		expect(tri.spoofOf('Amazon Prime Video', 'no-reply@primevideo.com')).toBeUndefined();
+		expect(
+			tri.spoofOf('Microsoft account team', 'a@accountprotection.microsoft.com')
+		).toBeUndefined();
+		expect(tri.spoofOf('Sparkasse KölnBonn', 'service@sparkasse-koelnbonn.de')).toBeUndefined();
+		expect(tri.spoofOf('Sparkasse', 'k@s-online-sicherheit.com')).toBe('Sparkasse');
+		expect(tri.spoofOf('paypal.com', 'x@evil.example')).toBe('paypal.com');
+		expect(tri.spoofOf('Booking.com', 'noreply@mailer.booking.com')).toBeUndefined();
+		expect(tri.spoofOf('Erika Mustermann', 'erika@uni.example')).toBeUndefined();
+
+		expect(tri.codeOf('Verification code: 482913\nIf you did not…')).toBe('482913');
+		expect(tri.codeOf('G-731942 ist Ihr Google-Bestätigungscode')).toBe('G-731942');
+		expect(tri.codeOf('Ihr Bestätigungscode lautet\n\n123 456')).toBe(null); // two lines on
+		expect(tri.codeOf('Ihr Bestätigungscode lautet\n123 456\nGültig 10 Minuten')).toBe('123 456');
+		expect(tri.codeOf('Your login code is AB12CD.')).toBe('AB12CD');
+		expect(tri.codeOf('Use code SAVE10 for 10 € off in 2026')).toBe('SAVE10');
+		expect(tri.codeOf('Code of conduct 2026: please read')).toBe(null);
+		expect(tri.codeOf('Your PIN letter costs 4,50 €')).toBe(null);
+		expect(tri.codeOf('Meeting at 14:30 about the code review')).toBe(null);
+
+		expect(
+			tri.trackingOf('Sendungsnummer: 00340434161234567890', 'noreply@dhl.de', [
+				'https://www.dhl.de/de/privatkunden/pakete-empfangen/verfolgen.html?piececode=00340434161234567890'
+			])
+		).toEqual(['00340434161234567890']);
+		expect(
+			tri.trackingOf('Ihre DHL Sendung JJD000390012345678901 ist unterwegs', 'shop@x.de')
+		).toEqual(['JJD000390012345678901']);
+		expect(tri.trackingOf('Versand mit DHL. Sendungsnummer 123456789012', 'shop@x.de')).toEqual([
+			'123456789012'
+		]);
+		expect(tri.trackingOf('Sendungsnummer 123456789012 (Hermes)', 'shop@x.de')).toEqual([]);
+	});
+
+	test('DHL Parcel DE: request and answers', async () => {
+		const { parseDhl, requestXml } = await import('../src/modules/mail/server/parcels.ts');
+		expect(requestXml('00340434000000000017', { user: 'me', password: 'a"b' })).toBe(
+			'<?xml version="1.0" encoding="UTF-8" standalone="no"?><data appname="me" password="a&quot;b" request="d-get-piece-detail" language-code="de" piece-code="00340434000000000017"/>'
+		);
+		// the shape of a d-get-piece-detail answer (written from memory of DHL's documentation)
+		const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<data name="pieceshipmentlist" code="0" request-id="x">
+	<data name="pieceshipment" error-status="0" piece-code="00340434000000000017"
+		status="Die Sendung wurde in das Zustellfahrzeug geladen." short-status="In Zustellung"
+		status-timestamp="25.11.2026 08:12" event-location="Köln" delivery-event-flag="0" ice="LDTMV">
+		<data name="pieceEventList" piece-code="00340434000000000017">
+			<data name="pieceEvent" event-timestamp="24.11.2026 18:40" event-status="Die Sendung wurde im Start-Paketzentrum bearbeitet." event-location="Bremen"/>
+			<data name="pieceEvent" event-timestamp="25.11.2026 08:12" event-status="Die Sendung wurde in das Zustellfahrzeug geladen." event-location="Köln"/>
+		</data>
+	</data>
+</data>`;
+		expect(parseDhl('00340434000000000017', xml)).toEqual({
+			number: '00340434000000000017',
+			code: 'transit',
+			status: 'Die Sendung wurde in das Zustellfahrzeug geladen.',
+			location: 'Köln',
+			at: new Date(2026, 10, 25, 8, 12).toISOString()
+		});
+		const delivered = xml.replace('delivery-event-flag="0"', 'delivery-event-flag="1"');
+		expect(parseDhl('1', delivered).code).toBe('delivered');
+		expect(
+			parseDhl('1', '<data name="pieceshipmentlist" code="100" error="Keine Daten gefunden."/>')
+		).toEqual({ number: '1', error: 'not found yet (Keine Daten gefunden.)' });
+		// DHL's mail links its tracking page through custcomm.dhl.de
+		expect(
+			tri.trackingOf('Ihr Paket ist unterwegs.', 'noreply@dhl.de', [
+				'https://custcomm.dhl.de/go/2/AAAA-BBBBBBBB-CCCCCCCC-DDDDDD.html?piececode=00340434000000000017'
+			])
+		).toEqual(['00340434000000000017']);
+	});
+
+	test('pending → state → answers → tabs → rules, summaries, labels', async () => {
 		db.put('mail_accounts', { id: 'tri1', name: 'Uni', address: own, type: 'imap' });
 		db.put('settings', {
 			id: 'settings',
@@ -483,23 +665,86 @@ describe('facts, waiting mail, answers and labels (server)', () => {
 			tri.save({ msgid: '<t1@uni>', model: 'm', version: t.VERSION, answers: { Nope: 1 } })
 		).rejects.toMatchObject({ status: 400 });
 		expect(
-			(await tri.save({ msgid: '<t1@uni>', model: 'm', version: t.VERSION, answers: work })).bucket
-		).toBe('needs');
+			(await tri.save({ msgid: '<t1@uni>', model: 'm', version: t.VERSION, answers: work })).tab
+		).toBe('personal');
 		expect(
-			(await tri.save({ msgid: '<t2@uni>', model: 'm', version: t.VERSION, answers: news })).bucket
-		).toBe('other');
+			(await tri.save({ msgid: '<t2@uni>', model: 'm', version: t.VERSION, answers: news })).tab
+		).toBe('news');
 
-		const ids = (split: 'needs' | 'other' | null) =>
+		const ids = (tab: string | null) =>
 			store
-				.threads({ view: 'inbox', account: 'tri1', split, since: tri.since() }, ['tri1'])
-				.map((r) => r.thread);
-		expect(ids('needs')).toEqual(['TT1']);
-		expect(ids('other')).toEqual(['TT2']);
-		expect(ids(null).sort()).toEqual(['TT1', 'TT2']);
-		const row = store
-			.threads({ view: 'inbox', account: 'tri1' }, ['tri1'])
-			.find((r) => r.thread === 'TT1')!;
-		expect(row.triage?.answers['Action needed?']).toBe(0.9);
+				.threads({ view: 'inbox', account: 'tri1', tab }, ['tri1'])
+				.map((r) => r.thread)
+				.sort();
+		expect(ids('personal')).toEqual(['TT1']);
+		expect(ids('news')).toEqual(['TT2']);
+		expect(ids(null)).toEqual(['TT1', 'TT2']);
+		const rowOf = () =>
+			store.threads({ view: 'inbox', account: 'tri1' }, ['tri1']).find((r) => r.thread === 'TT1')!;
+		expect(rowOf().triage).toMatchObject({ tab: 'personal' });
+		expect(rowOf().triage?.answers['Action needed?']).toBe(0.9);
+		expect(rowOf().triage?.replied).toBeUndefined();
+
+		// the summary model's sentence
+		expect(
+			tri.saveSummary({ msgid: '<t1@uni>', summary: '  Correct sheet 5 by Friday. ' })
+		).toEqual({
+			ok: true
+		});
+		expect(rowOf().triage?.summary).toBe('Correct sheet 5 by Friday.');
+		expect(() => tri.saveSummary({ msgid: '<nope>', summary: 'x' })).toThrow();
+
+		// "Move sender to …" moves the triaged mail at once; null lets the model decide again
+		expect(tri.setRule({ address: 'Erika@uni.example', tab: 'ads' })).toEqual({
+			moved: 2,
+			tab: 'ads'
+		});
+		expect(tri.ruleOf('erika@uni.example')).toBe('ads');
+		expect(ids('ads')).toEqual(['TT1', 'TT2']);
+		expect(tri.ofThread('TT1')).toMatchObject({
+			rule: 'ads',
+			tab: 'ads',
+			from: 'erika@uni.example'
+		});
+		tri.setRule({ address: 'erika@uni.example', tab: null });
+		expect(ids('personal')).toEqual(['TT1']);
+		expect(() => tri.setRule({ address: 'erika@uni.example', tab: 'nope' })).toThrow();
+
+		// our answer in the thread: the markers go; history counts it
+		store.insert([
+			{
+				account: 'tri1',
+				folder: 'sent',
+				uid: 9,
+				msgid: '<r1@uni>',
+				thread: 'TT1',
+				date: new Date().toISOString(),
+				from_name: '',
+				from_addr: own,
+				to_json: JSON.stringify([{ name: 'Erika', address: 'erika@uni.example' }]),
+				subject: 'Re: Übungsblatt 5',
+				snippet: '',
+				seen: true,
+				flagged: false,
+				attach: false,
+				invite: false,
+				tpart: null
+			}
+		]);
+		expect(rowOf().triage?.replied).toBe(true);
+		expect(tri.historyOf('erika@uni.example', new Date(Date.now() + 60_000).toISOString())).toEqual(
+			{
+				sent: 1,
+				fromAddr: 2,
+				fromDomain: 2,
+				since: date
+			}
+		);
+		expect(tri.historyOf('erika@uni.example', date)).toEqual({
+			sent: 0,
+			fromAddr: 0,
+			fromDomain: 0
+		});
 
 		// labels copy the state and the model's answers once
 		expect(tri.label({ msgid: '<t1@uni>', name: 'Primary action', value: 'Reply' })).toEqual({
@@ -513,6 +758,15 @@ describe('facts, waiting mail, answers and labels (server)', () => {
 		expect(tri.label({ msgid: '<t1@uni>', name: 'Spam', value: null })).toEqual({
 			'Primary action': 'Reply'
 		});
+		// a corrected category moves the mail at once
+		tri.label({ msgid: '<t1@uni>', name: 'Category', value: 'Advertisement' });
+		expect(ids('ads')).toEqual(['TT1']);
+		expect(rowOf().triage?.labels).toEqual({
+			'Primary action': 'Reply',
+			Category: 'Advertisement'
+		});
+		tri.label({ msgid: '<t1@uni>', name: 'Category', value: null });
+		expect(ids('personal')).toEqual(['TT1']);
 		const th = tri.ofThread('TT1')!;
 		expect(th).toMatchObject({ msgid: '<t1@uni>', labels: { 'Primary action': 'Reply' } });
 		const saved = db.db

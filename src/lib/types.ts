@@ -242,7 +242,19 @@ export interface MailThreadRow {
 		answers: import('#modules/mail/triage/triage.ts').Answers;
 		facts: import('#modules/mail/triage/triage.ts').Facts;
 		at: string;
+		/** Inbox tab (personal, orders, news, ads; older answers: needs/other). */
+		tab: string;
+		/** One-time code found in it. */
+		code?: string;
+		/** One sentence from the optional summary model. */
+		summary?: string;
+		/** Answers corrected by hand. */
+		labels?: import('#modules/mail/triage/triage.ts').Labels;
+		/** We wrote in the thread after this message. */
+		replied?: boolean;
 	};
+	/** DHL parcel found in it (triage). */
+	parcel?: import('#modules/mail/triage/triage.ts').Parcel;
 }
 
 export interface MailAttachment {

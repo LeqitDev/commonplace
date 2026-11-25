@@ -23,6 +23,7 @@
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import type { MailThreadRow } from '#lib/types.ts';
 	import { device, triage } from '#modules/mail/triage/triage.svelte.ts';
+	import { TABS, isTab, type Tab } from '#modules/mail/triage/triage.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Check from '@lucide/svelte/icons/check';
@@ -37,27 +38,27 @@
 		account ? !!mail.syncing[account] : accounts().some((a) => mail.syncing[a.id])
 	);
 
-	// the inbox split by the triage: all, "needs you", "other" (remembered per browser)
-	type Split = '' | 'needs' | 'other';
-	const SPLIT_KEY = 'mail:split';
-	let split = $state<Split>(
+	// the inbox tabs of the triage: All, Personal, Orders, News, Ads (remembered per browser)
+	const TAB_KEY = 'mail:tab';
+	let tab = $state<Tab | ''>(
 		(() => {
 			try {
-				return (localStorage.getItem(SPLIT_KEY) ?? '') as Split;
+				const v = localStorage.getItem(TAB_KEY);
+				return isTab(v) ? v : '';
 			} catch {
 				return '';
 			}
 		})()
 	);
-	function setSplit(v: Split) {
-		split = v;
+	function setTab(v: Tab | '') {
+		tab = v;
 		try {
-			localStorage.setItem(SPLIT_KEY, v);
+			localStorage.setItem(TAB_KEY, v);
 		} catch {
 			/* storage unavailable */
 		}
 	}
-	const splitOf = () => (view === 'inbox' && featureOn('triage') ? split : '');
+	const tabOf = () => (view === 'inbox' && featureOn('triage') ? tab : '');
 
 	let threads = $state<MailThreadRow[]>([]);
 	let more = $state(false);
@@ -66,19 +67,19 @@
 
 	const query = (o: Record<string, string | number | null>) =>
 		new URLSearchParams(
-			Object.entries({ view, account, project: ui.project, split: splitOf() || null, ...o }).filter(
+			Object.entries({ view, account, project: ui.project, tab: tabOf() || null, ...o }).filter(
 				([, v]) => v != null
 			) as [string, string][]
 		);
 
 	/** First page (or as many as are shown, to keep the place after a change on the server). */
 	async function load(keep = false) {
-		const key = `${account}|${view}|${ui.project}|${splitOf()}`;
+		const key = `${account}|${view}|${ui.project}|${tabOf()}`;
 		const limit = keep ? Math.min(Math.max(threads.length, PAGE), 200) : PAGE;
 		const rows = await api<MailThreadRow[]>(`/api/mail?${query({ limit })}`);
-		if (key !== `${account}|${view}|${ui.project}|${splitOf()}`) return;
+		if (key !== `${account}|${view}|${ui.project}|${tabOf()}`) return;
 		threads = rows;
-		more = splitOf() !== 'needs' && rows.length === limit; // "needs you" comes in one piece
+		more = rows.length === limit;
 		loadedFor = key;
 	}
 	async function loadMore() {
@@ -96,7 +97,7 @@
 	}
 
 	$effect(() => {
-		const key = `${account}|${view}|${ui.project}|${splitOf()}`;
+		const key = `${account}|${view}|${ui.project}|${tabOf()}`;
 		if (key !== loadedFor) {
 			threads = [];
 			untrack(() => void load());
@@ -182,18 +183,11 @@
 	const toTriage = $derived(unread(account));
 	const noAccounts = $derived(!db.mail_accounts.all.length);
 	const viewLabel = $derived(VIEWS.find((v) => v.id === view)?.label ?? 'Inbox');
-	const SPLITS = [
-		['', 'All'],
-		['needs', 'Needs you'],
-		['other', 'Other']
-	] as const;
-	// the split only where the triage has something to say
-	const showSplit = $derived(
-		view === 'inbox' &&
-			featureOn('triage') &&
-			(device.on || !!split || threads.some((t) => t.triage))
+	// the tabs only where the triage has something to say
+	const showTabs = $derived(
+		view === 'inbox' && featureOn('triage') && (device.on || !!tab || threads.some((t) => t.triage))
 	);
-	const triaging = $derived(showSplit && device.on && triage.running);
+	const triaging = $derived(showTabs && device.on && triage.running);
 </script>
 
 <div class="flex h-full min-h-0">
@@ -202,16 +196,13 @@
 		aria-label="Messages"
 	>
 		<header class="flex h-[60px] shrink-0 items-center gap-1.5 border-b pr-3 pl-2.5">
-			<!-- the folder (and the triage split of the inbox) in one menu -->
+			<!-- the folder -->
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger
 					class="flex min-w-0 shrink-0 items-baseline gap-1.5 rounded-md px-1.5 py-1 outline-hidden hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
 					title="Folder"
 				>
 					<h1 class="m-0 text-[17px] font-semibold tracking-tight">{viewLabel}</h1>
-					{#if showSplit && split}<span class="text-[13px] whitespace-nowrap text-muted-foreground"
-							>{SPLITS.find(([v]) => v === split)?.[1]}</span
-						>{/if}
 					<ChevronDown class="size-3.5 shrink-0 self-center text-muted-foreground" />
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="start" class="w-52">
@@ -221,26 +212,12 @@
 							{#if view === v.id}<Check class="size-3.5" />{/if}
 						</DropdownMenu.Item>
 					{/each}
-					{#if showSplit}
-						<DropdownMenu.Separator />
-						<DropdownMenu.Label class="text-xs font-normal text-muted-foreground"
-							>Inbox by triage</DropdownMenu.Label
-						>
-						<DropdownMenu.RadioGroup
-							value={split || 'all'}
-							onValueChange={(v) => setSplit((v === 'all' ? '' : v) as Split)}
-						>
-							{#each SPLITS as [v, label] (v)}
-								<DropdownMenu.RadioItem value={v || 'all'}>{label}</DropdownMenu.RadioItem>
-							{/each}
-						</DropdownMenu.RadioGroup>
-					{/if}
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 			<span class="min-w-0 flex-1 truncate text-[13px] text-muted-foreground" {title}
 				>{title}{#if toTriage}&nbsp;· {toTriage} to triage{/if}</span
 			>
-			{#if showSplit && device.on && triage.error && !triage.running}
+			{#if showTabs && device.on && triage.error && !triage.running}
 				<Button
 					size="icon-sm"
 					variant="ghost"
@@ -264,6 +241,21 @@
 				><PenLine />Write</Button
 			>
 		</header>
+		{#if showTabs}
+			<!-- the triage's tabs of the inbox -->
+			<div class="flex shrink-0 gap-0.5 border-b px-2.5 py-1.5 text-[13px]" role="tablist">
+				{#each [{ id: '' as const, label: 'All' }, ...TABS] as t (t.id)}
+					<button
+						role="tab"
+						aria-selected={tab === t.id}
+						class="h-7 rounded-md px-2 {tab === t.id
+							? 'bg-muted font-medium text-foreground'
+							: 'text-muted-foreground hover:text-foreground'}"
+						onclick={() => setTab(t.id)}>{t.label}</button
+					>
+				{/each}
+			</div>
+		{/if}
 		{#if noAccounts}
 			<p class="p-4 text-sm text-muted-foreground">
 				No mail account yet. <button

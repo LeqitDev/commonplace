@@ -13,7 +13,9 @@
 	import SquareCheck from '@lucide/svelte/icons/square-check';
 	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 	import KeyRound from '@lucide/svelte/icons/key-round';
-	import { T, dueLabel, summary } from '#modules/mail/triage/triage.ts';
+	import Package from '@lucide/svelte/icons/package';
+	import { codeExpired, dueLabel, parcelLabel, summary } from '#modules/mail/triage/triage.ts';
+	import { copyCode } from '#modules/mail/triage/triage.svelte.ts';
 
 	let {
 		threads,
@@ -38,12 +40,12 @@
 			? `To ${t.to.map((x) => x.name || x.address).join(', ') || '…'}`
 			: t.fromName || t.fromAddr || '(unknown)';
 
-	/** What the triage says, as a few words: "Reply · today", "too late". */
+	/** What the triage says, as a few words: "Reply · today", "too late" (nothing once we answered). */
 	function marks(t: MailThreadRow) {
 		if (!t.triage || !featureOn('triage')) return null;
-		const s = summary(t.triage.answers, t.triage.facts, t.triage.at);
-		const when = s.late ? 'too late' : s.due && s.bucket === 'needs' ? dueLabel(s.due) : '';
-		return { s, text: [s.action, when].filter(Boolean).join(' · ') };
+		const s = summary(t.triage.answers, t.triage.facts, t.triage.at, { labels: t.triage.labels });
+		const when = s.late ? 'too late' : s.due ? dueLabel(s.due) : '';
+		return { s, text: t.triage.replied ? '' : [s.action, when].filter(Boolean).join(' · ') };
 	}
 
 	function onscroll(e: Event) {
@@ -95,14 +97,32 @@
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="min-w-0 flex-1 truncate">{t.subject || '(no subject)'}</span>
-					{#if tm && tm.s.phishing >= T.warnPhishing}<ShieldAlert
+					{#if tm?.s.warn}<ShieldAlert
 							class="size-[13px] shrink-0 text-foreground"
 							aria-label="May be phishing"
 						/>{/if}
-					{#if tm?.s.code}<KeyRound
+					{#if tm && t.triage?.code}<button
+							type="button"
+							class="flex shrink-0 items-center gap-1 rounded border border-line2 px-1 font-mono text-[11px] leading-4 text-muted-foreground hover:bg-muted hover:text-foreground {codeExpired(
+								t.date
+							)
+								? 'line-through'
+								: ''}"
+							title={codeExpired(t.date) ? 'Code (probably expired): copy' : 'Copy the code'}
+							onclick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								copyCode(t.triage!.code!);
+							}}><KeyRound class="size-3" />{t.triage.code}</button
+						>{:else if tm?.s.code}<KeyRound
 							class="size-[13px] shrink-0 text-muted-foreground"
 							aria-label="Contains a code"
 						/>{/if}
+					{#if tm && t.parcel}<span
+							class="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground"
+							title={t.parcel.status ?? 'DHL parcel'}
+							><Package class="size-3" />{parcelLabel(t.parcel)}</span
+						>{/if}
 					{#if tm?.text}<span
 							class="shrink-0 rounded border border-line2 px-1 text-[11px] leading-4 text-muted-foreground"
 							title="Triage">{tm.text}</span
@@ -129,7 +149,9 @@
 							title={proj.name}
 						></span>{/if}
 				</span>
-				<span class="truncate text-muted-foreground">{t.snippet || ' '}</span>
+				<span class="truncate text-muted-foreground"
+					>{(tm && t.triage?.summary) || t.snippet || ' '}</span
+				>
 			</span>
 		</a>
 	{/each}

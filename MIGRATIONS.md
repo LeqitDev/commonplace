@@ -2,6 +2,17 @@
 
 Newest first. Each entry says what changed, whether existing data keeps working, and what to do when upgrading.
 
+## 2026-11-25: Mail triage tabs, sender history, codes, DHL tracking, summaries
+
+**No action needed; mail of the last two weeks is triaged again by itself.** The inbox split "Needs you / Other" became the tabs All · Personal · Orders · News · Ads.
+
+- **Question set**: the Phishing question's wording changed, so its `VERSION` changed: a browser with the model asks again about the 14-day window (as after "Run again"). Older answers keep their `needs`/`other` value; they show under All only.
+- **mail.db** (a cache): table `triage` gets the columns `code`, `summary`, `labels` (added on startup; `bucket` now holds the tab), new table `parcels`. Deleting mail.db still only costs a resync.
+- **commonplace.db**: new table `triage_senders` ("Move sender to …"), created on startup.
+- **Stored facts**: `known` became `history` (`sent`, `fromAddr`, `fromDomain`, `since`) plus `spoof`, `replyTo`, `punycode`, `foreign`. Old answers with `known` still read; `known: false` is no longer shown as a phishing sign.
+- **Browser**: the remembered split `localStorage['mail:split']` is no longer read; the tab is `mail:tab` (starts at All). The per-device triage config can now hold `summary` (optional summary model).
+- **New env** (optional; README): `DHL_API_KEY`, `DHL_TRACKING_USER`, `DHL_TRACKING_PASSWORD` for DHL's "Parcel DE Tracking (Post & Parcel Germany)" API. Without the key nothing is sent to DHL.
+
 ## 2026-11-24: Renamed to Commonplace
 
 **Stored data: converted on the first start, nothing to do by hand.** Besides the visible name (page title, README, settings texts, `package.json`, PRODID), the stored names change from "planner" to "commonplace". The new version converts them once when it starts (each step is skipped when there is nothing left to convert):

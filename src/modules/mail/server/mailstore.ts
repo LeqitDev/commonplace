@@ -53,6 +53,20 @@ mdb.run(`CREATE TABLE IF NOT EXISTS triage (
 	state TEXT NOT NULL, facts TEXT NOT NULL, answers TEXT NOT NULL,
 	bucket TEXT NOT NULL, due TEXT, importance REAL NOT NULL DEFAULT 0)`);
 mdb.run('CREATE INDEX IF NOT EXISTS triage_thread ON triage (thread, date)');
+// 2026-11-25: `bucket` holds the tab (personal/orders/news/ads); the one-time code found in the
+// text, the summary of the optional generative model, and a copy of the hand-corrected answers
+// (the truth is `triage_labels` in commonplace.db)
+for (const col of ['code TEXT', 'summary TEXT', 'labels TEXT'])
+	try {
+		mdb.run(`ALTER TABLE triage ADD COLUMN ${col}`);
+	} catch {
+		/* there already */
+	}
+// DHL parcels found in triaged order mail, with their last tracking status (`parcels.ts`)
+mdb.run(`CREATE TABLE IF NOT EXISTS parcels (
+	number TEXT PRIMARY KEY, thread TEXT NOT NULL, msgid TEXT NOT NULL, found TEXT NOT NULL,
+	checked TEXT, delivered INTEGER NOT NULL DEFAULT 0, status TEXT)`);
+mdb.run('CREATE INDEX IF NOT EXISTS parcels_thread ON parcels (thread)');
 
 const sha = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 20);
 
@@ -306,6 +320,12 @@ type ThreadSql = {
 	t_answers: string | null;
 	t_facts: string | null;
 	t_at: string | null;
+	t_bucket: string | null;
+	t_code: string | null;
+	t_summary: string | null;
+	t_labels: string | null;
+	replied: number;
+	parcel: string | null;
 };
 
 export interface ThreadQuery {
@@ -319,11 +339,8 @@ export interface ThreadQuery {
 	back?: Record<string, string>;
 	/** Threads waiting for an answer (Track the reply). */
 	waiting?: string[];
-	/** Inbox by triage: "needs" (by due time, then importance, unpaged; untriaged ones newer than
-	 *  `since` too, they are next in line) or "other". */
-	split?: 'needs' | 'other' | null;
-	/** Start of the triage window. */
-	since?: string;
+	/** Inbox tab of the triage (the tab of the thread's newest triaged message). */
+	tab?: string | null;
 }
 
 /** Threads of a view, newest first; `before` pages by `sort` (newest message, or the time it came
@@ -331,16 +348,8 @@ export interface ThreadQuery {
 export function threads(o: ThreadQuery, accounts: string[]): MailThreadRow[] {
 	const acc = o.account ? [o.account] : accounts;
 	if (!acc.length) return [];
-	const split =
-		o.split === 'needs' && o.view === 'inbox'
-			? {
-					where:
-						"(t_answers IS NOT NULL AND tri.bucket = 'needs') OR (t_answers IS NULL AND agg.date >= $since)",
-					order: 't_due IS NULL, t_due, t_importance DESC, sort DESC'
-				}
-			: o.split === 'other' && o.view === 'inbox'
-				? { where: "tri.bucket = 'other' AND sort < $before", order: 'sort DESC' }
-				: { where: 'sort < $before', order: 'sort DESC' };
+	const where =
+		o.tab && o.view === 'inbox' ? 'tri.bucket = $tab AND sort < $before' : 'sort < $before';
 	const marks = acc.map((_, i) => `$a${i}`).join(',');
 	// all threads of the view (agg), one page of them (page), the fields of each one's newest message (top)
 	const rows = mdb
@@ -354,22 +363,26 @@ export function threads(o: ThreadQuery, accounts: string[]): MailThreadRow[] {
 				FROM m WHERE ${VIEW_SQL[o.view]}
 				GROUP BY thread),
 			tri AS (
-				SELECT thread, answers, facts, at, bucket, due, importance,
+				SELECT thread, date, answers, facts, at, bucket, code, summary, labels,
 					row_number() OVER (PARTITION BY thread ORDER BY date DESC) AS rn
 				FROM triage WHERE thread IN (SELECT thread FROM agg)),
 			page AS (
 				SELECT agg.*, max(agg.date, coalesce(b.value, '')) AS sort,
-					tri.answers AS t_answers, tri.facts AS t_facts, tri.at AS t_at,
-					tri.due AS t_due, tri.importance AS t_importance
+					tri.answers AS t_answers, tri.facts AS t_facts, tri.at AS t_at, tri.date AS t_date,
+					tri.bucket AS t_bucket, tri.code AS t_code, tri.summary AS t_summary,
+					tri.labels AS t_labels
 				FROM agg LEFT JOIN json_each($back) AS b ON b.key = agg.thread
 					LEFT JOIN tri ON tri.thread = agg.thread AND tri.rn = 1
-				WHERE ${split.where} ORDER BY ${split.order} LIMIT $limit),
+				WHERE ${where} ORDER BY sort DESC LIMIT $limit),
 			top AS (
 				SELECT m.*, row_number() OVER (PARTITION BY m.thread ORDER BY m.date DESC, m.cached DESC) AS rn
 				FROM m JOIN page USING (thread))
-			SELECT page.*, top.account, top.from_name, top.from_addr, top.to_json, top.subject, top.snippet
+			SELECT page.*, top.account, top.from_name, top.from_addr, top.to_json, top.subject, top.snippet,
+				EXISTS (SELECT 1 FROM msg s WHERE s.thread = page.thread AND s.folder = 'sent'
+					AND s.date > page.t_date) AS replied,
+				(SELECT status FROM parcels p WHERE p.thread = page.thread ORDER BY p.found DESC LIMIT 1) AS parcel
 			FROM page JOIN top ON top.thread = page.thread AND top.rn = 1
-			ORDER BY ${split.order.replaceAll('t_', 'page.t_').replace(/\bsort\b/g, 'page.sort')}`
+			ORDER BY page.sort DESC`
 		)
 		.all({
 			...Object.fromEntries(acc.map((a, i) => [`$a${i}`, a])),
@@ -377,8 +390,8 @@ export function threads(o: ThreadQuery, accounts: string[]): MailThreadRow[] {
 			$back: JSON.stringify(o.back ?? {}),
 			$waiting: JSON.stringify(o.waiting ?? []),
 			$before: o.before ?? '9999',
-			$limit: o.split === 'needs' ? 200 : (o.limit ?? 50),
-			$since: o.since ?? '9999'
+			$limit: o.limit ?? 50,
+			...(o.tab && o.view === 'inbox' && { $tab: o.tab })
 		});
 	return rows.map((r) => ({
 		thread: r.thread,
@@ -400,9 +413,15 @@ export function threads(o: ThreadQuery, accounts: string[]): MailThreadRow[] {
 			triage: {
 				answers: JSON.parse(r.t_answers),
 				facts: JSON.parse(r.t_facts ?? '{}'),
-				at: r.t_at!
+				at: r.t_at!,
+				tab: r.t_bucket ?? '',
+				...(r.t_code && { code: r.t_code }),
+				...(r.t_summary && { summary: r.t_summary }),
+				...(r.t_labels && { labels: JSON.parse(r.t_labels) }),
+				...(r.replied && { replied: true })
 			}
-		})
+		}),
+		...(r.parcel && { parcel: JSON.parse(r.parcel) })
 	}));
 }
 

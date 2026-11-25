@@ -106,6 +106,22 @@
 			value={device.key ?? ''}
 			onchange={(e) => saveDevice({ key: e.currentTarget.value.trim() || undefined })}
 		/>
+		<label for="tr-summary" class="text-muted-foreground">Summaries</label>
+		<input
+			id="tr-summary"
+			class={input}
+			list="tr-models"
+			value={device.summary ?? ''}
+			placeholder="none: optional, e.g. qwen3-4b-instruct-2507"
+			onchange={(e) => saveDevice({ summary: e.currentTarget.value.trim() || undefined })}
+		/>
+		<span></span>
+		<span class="text-[12.5px] text-muted-foreground">
+			A small chat model on the same server writes one sentence about each Personal and Orders mail,
+			shown in the list and the reader. Needs a few GB of memory beside the triage model.
+			{#if triage.summaryError}<br /><TriangleAlert class="inline size-3.5" />
+				{triage.summaryError}{/if}
+		</span>
 	</div>
 	<div class="{row} text-[13px]">
 		<button class={soft} disabled={testing} onclick={test}>

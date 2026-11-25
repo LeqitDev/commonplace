@@ -1,11 +1,19 @@
-import { clear, ofThread, pending, save, status } from '#modules/mail/server/triage.ts';
+import {
+	clear,
+	ofThread,
+	pending,
+	save,
+	saveSummary,
+	status
+} from '#modules/mail/server/triage.ts';
 import type { RequestHandler } from './$types';
 
 // Mail triage: the browser that has the model (on its own PC) takes mail from here and sends the
 // answers back.
 // GET ?limit=10 → { items (states to ask about), waiting, done, labels }; GET ?thread=<id> → the
-// conversation's triage with its labels (the reader). POST { msgid, model, version, answers }.
-// DELETE: "run again" on the window.
+// conversation's triage with its labels, sender rule and parcels (the reader).
+// POST { msgid, model, version, answers } → the summary (tab, due …); POST { msgid, summary }: the
+// sentence of the optional summary model. DELETE: "run again" on the window.
 export const GET: RequestHandler = async ({ url }) => {
 	const thread = url.searchParams.get('thread');
 	if (thread) return Response.json(ofThread(thread));
@@ -14,8 +22,12 @@ export const GET: RequestHandler = async ({ url }) => {
 	return Response.json({ items, ...status() });
 };
 
-export const POST: RequestHandler = async ({ request }) =>
-	Response.json(await save(await request.json()));
+export const POST: RequestHandler = async ({ request }) => {
+	const b = await request.json();
+	return Response.json(
+		b && typeof b === 'object' && 'answers' in b ? await save(b) : saveSummary(b ?? {})
+	);
+};
 
 export const DELETE: RequestHandler = () => {
 	clear();

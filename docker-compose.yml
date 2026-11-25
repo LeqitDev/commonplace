@@ -15,6 +15,10 @@ services:
       # CALDAV_URL: http://radicale:5232/alex/commonplace/ # one calendar collection, VEVENT + VTODO
       # CALDAV_USER: alex
       # CALDAV_PASSWORD: change-me
+      # DHL tracking of parcels in order mail (mail triage; DHL's "Parcel DE Tracking" API):
+      # DHL_API_KEY: …
+      # DHL_TRACKING_USER: …
+      # DHL_TRACKING_PASSWORD: …
     volumes:
       - ./data:/data # commonplace.db, uploaded files, backups/ (must be writable by uid 1000)
     networks: [proxy]
