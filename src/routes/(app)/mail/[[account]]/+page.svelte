@@ -23,7 +23,10 @@
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import type { MailThreadRow } from '#lib/types.ts';
 	import { device, triage } from '#modules/mail/triage/triage.svelte.ts';
-	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Check from '@lucide/svelte/icons/check';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	const PAGE = 50;
 	const account = $derived(page.params.account ?? null);
@@ -178,6 +181,19 @@
 	const title = $derived(acc ? acc.name : 'All inboxes');
 	const toTriage = $derived(unread(account));
 	const noAccounts = $derived(!db.mail_accounts.all.length);
+	const viewLabel = $derived(VIEWS.find((v) => v.id === view)?.label ?? 'Inbox');
+	const SPLITS = [
+		['', 'All'],
+		['needs', 'Needs you'],
+		['other', 'Other']
+	] as const;
+	// the split only where the triage has something to say
+	const showSplit = $derived(
+		view === 'inbox' &&
+			featureOn('triage') &&
+			(device.on || !!split || threads.some((t) => t.triage))
+	);
+	const triaging = $derived(showSplit && device.on && triage.running);
 </script>
 
 <div class="flex h-full min-h-0">
@@ -185,65 +201,69 @@
 		class="flex w-[360px] shrink-0 flex-col border-r {ui.focus && open ? 'hidden' : ''}"
 		aria-label="Messages"
 	>
-		<header class="flex h-[60px] shrink-0 items-center gap-2.5 pr-3 pl-4">
-			<h1 class="m-0 truncate text-[17px] font-semibold tracking-tight">{title}</h1>
-			<span class="flex-1 text-[13px] whitespace-nowrap text-muted-foreground">
-				{#if toTriage}{toTriage} to triage{/if}
-			</span>
+		<header class="flex h-[60px] shrink-0 items-center gap-1.5 border-b pr-3 pl-2.5">
+			<!-- the folder (and the triage split of the inbox) in one menu -->
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					class="flex min-w-0 shrink-0 items-baseline gap-1.5 rounded-md px-1.5 py-1 outline-hidden hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+					title="Folder"
+				>
+					<h1 class="m-0 text-[17px] font-semibold tracking-tight">{viewLabel}</h1>
+					{#if showSplit && split}<span class="text-[13px] whitespace-nowrap text-muted-foreground"
+							>{SPLITS.find(([v]) => v === split)?.[1]}</span
+						>{/if}
+					<ChevronDown class="size-3.5 shrink-0 self-center text-muted-foreground" />
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="start" class="w-52">
+					{#each VIEWS as v (v.id)}
+						<DropdownMenu.Item onSelect={() => goto(href({ view: v.id, m: null }))}>
+							<span class="flex-1">{v.label}</span>
+							{#if view === v.id}<Check class="size-3.5" />{/if}
+						</DropdownMenu.Item>
+					{/each}
+					{#if showSplit}
+						<DropdownMenu.Separator />
+						<DropdownMenu.Label class="text-xs font-normal text-muted-foreground"
+							>Inbox by triage</DropdownMenu.Label
+						>
+						<DropdownMenu.RadioGroup
+							value={split || 'all'}
+							onValueChange={(v) => setSplit((v === 'all' ? '' : v) as Split)}
+						>
+							{#each SPLITS as [v, label] (v)}
+								<DropdownMenu.RadioItem value={v || 'all'}>{label}</DropdownMenu.RadioItem>
+							{/each}
+						</DropdownMenu.RadioGroup>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<span class="min-w-0 flex-1 truncate text-[13px] text-muted-foreground" {title}
+				>{title}{#if toTriage}&nbsp;· {toTriage} to triage{/if}</span
+			>
+			{#if showSplit && device.on && triage.error && !triage.running}
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					class="text-muted-foreground"
+					title="Triage stopped: {triage.error}"
+					aria-label="Triage stopped"
+					onclick={() => openSettings('mail')}><TriangleAlert /></Button
+				>
+			{/if}
 			<Button
 				size="icon-sm"
 				variant="ghost"
-				title="Sync now"
+				title={triaging
+					? `Triaging${triage.waiting ? ` · ${triage.waiting} waiting` : ''}`
+					: 'Sync now'}
 				disabled={noAccounts}
 				onclick={() => syncMail(account ?? undefined)}
-				><RefreshCw class={syncing ? 'animate-spin' : ''} /></Button
+				><RefreshCw class={syncing || triaging ? 'animate-spin' : ''} /></Button
 			>
 			<Button size="sm" disabled={noAccounts} onclick={() => writeNew(account)} title="Write (c)"
 				><PenLine />Write</Button
 			>
 		</header>
-		<div class="flex flex-wrap gap-0 border-b px-2.5 pb-2.5" role="group" aria-label="Folder">
-			{#each VIEWS as v (v.id)}
-				<a
-					href={href({ view: v.id, m: null })}
-					aria-current={view === v.id ? 'page' : undefined}
-					class="h-7 rounded-full px-2 text-[13px] leading-7 {view === v.id
-						? 'bg-muted font-medium'
-						: 'text-muted-foreground hover:text-foreground'}">{v.label}</a
-				>
-			{/each}
-		</div>
-		{#if view === 'inbox' && featureOn('triage') && (device.on || split || threads.some((t) => t.triage))}
-			<div class="flex items-center gap-2 border-b px-2.5 py-2">
-				<div
-					role="group"
-					aria-label="Triage"
-					class="flex rounded-[9px] bg-muted p-[3px] text-[12.5px]"
-				>
-					{#each [['', 'All'], ['needs', 'Needs you'], ['other', 'Other']] as const as [v, label] (v)}
-						<button
-							aria-pressed={split === v}
-							class="h-6 rounded-md px-2.5 {split === v
-								? 'bg-background font-medium shadow-[0_1px_2px_rgba(0,0,0,.12)]'
-								: 'text-muted-foreground hover:text-foreground'}"
-							onclick={() => setSplit(v)}>{label}</button
-						>
-					{/each}
-				</div>
-				<span class="flex-1"></span>
-				{#if device.on && triage.running}
-					<span class="flex items-center gap-1 text-[11.5px] text-muted-foreground tabular-nums"
-						><LoaderCircle class="size-3 animate-spin" />Triaging{#if triage.waiting}&nbsp;· {triage.waiting}{/if}</span
-					>
-				{:else if device.on && triage.error}
-					<button
-						class="truncate text-[11.5px] text-muted-foreground hover:text-foreground"
-						title={triage.error}
-						onclick={() => openSettings('mail')}>Triage stopped</button
-					>
-				{/if}
-			</div>
-		{/if}
 		{#if noAccounts}
 			<p class="p-4 text-sm text-muted-foreground">
 				No mail account yet. <button

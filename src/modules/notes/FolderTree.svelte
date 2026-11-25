@@ -62,7 +62,8 @@
 	);
 
 	const row = 'group flex h-7 items-center gap-1.5 rounded-md pr-1 text-sm hover:bg-muted/60';
-	const pad = (extra = 0) => `padding-left: ${0.25 + depth * 0.9 + extra}rem`;
+	// one step in from the project label, then one step per folder level
+	const pad = (extra = 0) => `padding-left: ${0.25 + (depth + 1) * 0.9 + extra}rem`;
 	const icon = 'size-3.5 shrink-0 text-muted-foreground';
 	// keep focus in the rename field instead of returning it to the menu trigger
 	const keepFocus = (e: Event) => e.preventDefault();
@@ -158,7 +159,7 @@
 			<!-- indent guide under the chevron -->
 			<span
 				class="pointer-events-none absolute inset-y-0 border-l"
-				style="left: calc({0.25 + depth * 0.9}rem + 7px)"
+				style="left: calc({0.25 + (depth + 1) * 0.9}rem + 7px)"
 			></span>
 			<Self {projectId} parentId={f.id} depth={depth + 1} />
 		</div>

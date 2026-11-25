@@ -29,7 +29,11 @@ export interface MoreItem {
 	icon: Component;
 	title?: string;
 	active?: () => boolean;
-	run: () => void;
+	/** A page: drawn as a link, active on its path. Without it, `run` is called. */
+	href?: string;
+	run?: () => void;
+	/** A count shown beside it (inside "More" only, so it doesn't call for attention). */
+	badge?: () => number | undefined;
 }
 
 export interface Command {

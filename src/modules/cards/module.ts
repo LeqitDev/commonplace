@@ -17,7 +17,7 @@ function due() {
 
 export default {
 	id: 'cards',
-	nav: [{ href: '/review', label: 'Review', icon: Layers, key: 'g r', order: 50, badge: due }],
+	more: [{ href: '/review', label: 'Review', icon: Layers, title: 'Review (g r)', badge: due }],
 	commands: [{ label: 'Go to Review', run: () => goto('/review') }],
 	keys: { 'g r': () => goto('/review') },
 	shortcuts: [['g r', 'Review flashcards']],

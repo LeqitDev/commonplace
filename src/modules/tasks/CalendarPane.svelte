@@ -5,10 +5,9 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { db } from '#lib/data.svelte.ts';
 	import { due, isOpen, localIso } from '#lib/tasks.ts';
-	import { inFocus, ui } from '#lib/ui.svelte.ts';
+	import { inFocus, setCalPane, ui } from '#lib/ui.svelte.ts';
 	import type { Task } from '#lib/types.ts';
 	import ChevronsRight from '@lucide/svelte/icons/chevrons-right';
-	import ChevronsLeft from '@lucide/svelte/icons/chevrons-left';
 	import CalendarX from '@lucide/svelte/icons/calendar-x';
 
 	let {
@@ -18,9 +17,6 @@
 
 	let panel: HTMLElement | undefined = $state();
 	$effect(() => onpanel(panel));
-	// its own key: `calTasks` is the calendar's "Tasks" toggle
-	let showTasks = $state(localStorage.getItem('calPane') !== 'hide');
-	$effect(() => localStorage.setItem('calPane', showTasks ? 'show' : 'hide'));
 
 	// open tasks by when they are due (deadline, else start), then the ones without a start
 	const open = $derived(db.tasks.all.filter((t) => isOpen(t) && !t.parentId && inFocus(t)));
@@ -40,20 +36,25 @@
 	});
 </script>
 
-{#if showTasks && !ui.focus}
+{#if ui.calPane && !ui.focus}
 	<aside
 		bind:this={panel}
 		aria-label="Tasks"
 		class="relative flex w-[248px] shrink-0 flex-col gap-3 border-l px-2.5 py-3"
 	>
 		<div class="flex items-center px-1.5">
-			<h2 class="grow text-[13px] font-semibold">Tasks</h2>
+			<h2
+				class="grow text-[13px] font-semibold"
+				title="Drag onto the calendar to schedule. Drop back here to unschedule."
+			>
+				Tasks
+			</h2>
 			<Button
 				size="icon-xs"
 				variant="ghost"
 				class="text-muted-foreground"
 				aria-label="Hide tasks pane"
-				onclick={() => (showTasks = false)}><ChevronsRight /></Button
+				onclick={() => setCalPane(false)}><ChevronsRight /></Button
 			>
 		</div>
 		<div class="-mx-1 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1">
@@ -66,9 +67,6 @@
 				<p class="px-1.5 text-[13px] text-muted-foreground">No open tasks.</p>
 			{/each}
 		</div>
-		<p class="px-1.5 text-[11.5px] text-muted-foreground">
-			Drag onto the calendar to schedule. Drop back here to unschedule.
-		</p>
 		{#if unscheduling}
 			<!-- a scheduled task is dragged in the grid: the whole pane is the target -->
 			<div
@@ -82,13 +80,4 @@
 			</div>
 		{/if}
 	</aside>
-{:else if !ui.focus}
-	<button
-		aria-label="Show tasks pane"
-		class="flex w-[34px] shrink-0 flex-col items-center gap-2.5 border-l bg-panel pt-3.5 text-muted-foreground hover:text-foreground"
-		onclick={() => (showTasks = true)}
-	>
-		<ChevronsLeft class="size-4" />
-		<span class="text-xs font-medium [writing-mode:vertical-rl]">Tasks · {open.length}</span>
-	</button>
 {/if}

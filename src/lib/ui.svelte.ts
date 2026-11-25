@@ -30,6 +30,10 @@ export const ui = $state({
 	settings: null as SettingsTab | null,
 	/** The floating pomodoro panel is open. */
 	pomodoro: false,
+	/** The keyboard shortcut help is open. */
+	help: false,
+	/** The pane beside the calendar (the tasks module's `calendarAside`) is shown. */
+	calPane: stored('calPane') !== 'hide',
 	calendarDate: null as string | null // jump target for the calendar
 });
 
@@ -41,6 +45,15 @@ export function openSettings(tab: SettingsTab = 'general') {
 	ui.task = null;
 	ui.event = null;
 	ui.settings = tab;
+}
+
+export function setCalPane(on: boolean) {
+	ui.calPane = on;
+	try {
+		localStorage.setItem('calPane', on ? 'show' : 'hide');
+	} catch {
+		/* storage unavailable */
+	}
 }
 
 export function setProject(id: string | null) {

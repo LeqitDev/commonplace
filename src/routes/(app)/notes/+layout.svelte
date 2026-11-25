@@ -51,7 +51,13 @@
 		</button>
 		<NewNoteMenu {projectId} class="opacity-0 group-hover:opacity-100" />
 	</div>
-	{#if open}<FolderTree {projectId} />{/if}
+	{#if open}
+		<div class="relative">
+			<!-- indent guide under the chevron, as in the tree -->
+			<span class="pointer-events-none absolute inset-y-0 left-[calc(0.25rem+7px)] border-l"></span>
+			<FolderTree {projectId} />
+		</div>
+	{/if}
 {/snippet}
 
 <div class="flex h-full min-h-0">
@@ -84,15 +90,19 @@
 					</button>
 				</div>
 				{#if open}
-					{#each daily as n (n.id)}
-						<a
-							href={`/notes/${n.id}`}
-							class="flex h-7 items-center gap-1.5 rounded-md pl-6 text-sm hover:bg-muted/60 {page
-								.params.id === n.id
-								? 'bg-muted font-medium'
-								: ''}"><CalendarDays class="size-3.5 text-muted-foreground" />{n.daily}</a
-						>
-					{/each}
+					<div class="relative">
+						<span class="pointer-events-none absolute inset-y-0 left-[calc(0.25rem+7px)] border-l"
+						></span>
+						{#each daily as n (n.id)}
+							<a
+								href={`/notes/${n.id}`}
+								class="flex h-7 items-center gap-1.5 rounded-md pl-[2.4rem] text-sm hover:bg-muted/60 {page
+									.params.id === n.id
+									? 'bg-muted font-medium'
+									: ''}"><CalendarDays class="size-3.5 text-muted-foreground" />{n.daily}</a
+							>
+						{/each}
+					</div>
 				{/if}
 			{/if}
 		</aside>

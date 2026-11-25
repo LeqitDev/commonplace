@@ -21,7 +21,6 @@
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
-	let help = $state(false);
 	const loading = loadAll();
 	let ready = $state(false);
 	void loading.then(() => (ready = true));
@@ -53,7 +52,7 @@
 				'g ,': () => (ui.settings ? (ui.settings = null) : openSettings()),
 				n: () => (ui.palette = true),
 				f: () => toggleFocus(),
-				'Shift+?': () => (help = true)
+				'Shift+?': () => (ui.help = true)
 			},
 			{ always: ['$mod+k'] }
 		);
@@ -97,7 +96,7 @@
 		</main>
 	</Sidebar.Provider>
 	<CommandPalette />
-	<ShortcutHelp bind:open={help} />
+	<ShortcutHelp bind:open={ui.help} />
 	<ChoiceDialog />
 	<DragGhost />
 	<SettingsPanel />

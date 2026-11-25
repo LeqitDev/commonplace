@@ -113,17 +113,16 @@
 		onclick={() => act(row.thread, { seen: !!row.unread })}
 		>{#if row.unread}<MailOpen class="size-4" />{:else}<Mail class="size-4" />{/if}</button
 	>
-	<div class="mx-1.5 h-5 w-px bg-line2"></div>
-	<span class="text-[11.5px] text-muted-foreground">Turn into</span>
-	<div class="flex rounded-[9px] bg-muted p-[3px]" role="group" aria-label="Turn into">
-		{#each [['task', 'Task', SquareCheck], ['event', 'Event', CalendarIcon], ['note', 'Note', FileText]] as const as [kind, label, Icon] (kind)}
-			<button
-				class="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] hover:bg-background"
-				title="Turn into a {kind}"
-				onclick={() => onturn(kind)}><Icon class="size-4" />{label}</button
-			>
-		{/each}
-	</div>
+	<DropdownMenu.Root>
+		<DropdownMenu.Trigger class={btn} title="Turn into a task, event or note"
+			>Turn into<ChevronDown class="size-3.5 text-muted-foreground" /></DropdownMenu.Trigger
+		>
+		<DropdownMenu.Content align="start" class="w-44">
+			{#each [['task', 'Task', SquareCheck], ['event', 'Event', CalendarIcon], ['note', 'Note', FileText]] as const as [kind, label, Icon] (kind)}
+				<DropdownMenu.Item onSelect={() => onturn(kind)}><Icon />{label}</DropdownMenu.Item>
+			{/each}
+		</DropdownMenu.Content>
+	</DropdownMenu.Root>
 	<div class="flex-1"></div>
 	<div class="flex items-center rounded-lg border border-line2">
 		<button

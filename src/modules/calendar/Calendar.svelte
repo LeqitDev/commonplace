@@ -9,7 +9,7 @@
 	import 'fullcalendar/themes/forma/theme.css';
 	import { api, batch, create, db, featureOn, settings, update } from '#lib/data.svelte.ts';
 	import { columns, eventToFc, feedVisible, isOpen, localIso, taskToEvents } from '#lib/tasks.ts';
-	import { inFocus, ui } from '#lib/ui.svelte.ts';
+	import { inFocus, setCalPane, ui } from '#lib/ui.svelte.ts';
 	import { choose } from '#lib/choice.svelte.ts';
 	import { bindKeys } from '#lib/shortcuts.ts';
 	import { service, slot } from '#lib/slots.svelte.ts';
@@ -19,8 +19,10 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import FileText from '@lucide/svelte/icons/file-text';
-	import SquareCheck from '@lucide/svelte/icons/square-check';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import PanelRight from '@lucide/svelte/icons/panel-right';
 
 	let {
 		dragSource,
@@ -606,24 +608,6 @@
 		<div class="grow"></div>
 		<Button variant="outline" size="sm" title="Today (t)" onclick={() => cal?.today()}>Today</Button
 		>
-		{#if service('openDailyNote')}
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={() => cal && service('openDailyNote')?.(cal.getDate())}
-				><FileText />Daily note</Button
-			>
-		{/if}
-		{#if featureOn('tasks')}
-			<Button
-				variant="ghost"
-				size="sm"
-				class="aria-pressed:bg-muted"
-				aria-pressed={showTasks}
-				title="Show/hide tasks in the calendar"
-				onclick={toggleTasks}><SquareCheck />Tasks</Button
-			>
-		{/if}
 		<div role="group" aria-label="View" class="flex rounded-[9px] bg-muted p-[3px]">
 			{#each views as v (v.type)}
 				<button
@@ -634,6 +618,39 @@
 				>
 			{/each}
 		</div>
+		{#if featureOn('tasks') || service('openDailyNote')}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger
+					class="grid size-8 place-items-center rounded-md text-muted-foreground outline-hidden hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+					title="View options"
+					aria-label="View options"><Ellipsis class="size-4" /></DropdownMenu.Trigger
+				>
+				<DropdownMenu.Content align="end" class="w-56">
+					{#if featureOn('tasks')}
+						<DropdownMenu.CheckboxItem checked={showTasks} onCheckedChange={toggleTasks}
+							>Tasks in the calendar</DropdownMenu.CheckboxItem
+						>
+					{/if}
+					{#if service('openDailyNote')}
+						{#if featureOn('tasks')}<DropdownMenu.Separator />{/if}
+						<DropdownMenu.Item onSelect={() => cal && service('openDailyNote')?.(cal.getDate())}
+							><FileText />Daily note of this day</DropdownMenu.Item
+						>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
+		{#if aside && slot('calendarAside').length && !ui.focus}
+			<Button
+				size="icon-sm"
+				variant="ghost"
+				class="-ml-2 text-muted-foreground aria-pressed:text-foreground"
+				aria-pressed={ui.calPane}
+				aria-label="Tasks pane"
+				title={ui.calPane ? 'Hide the tasks pane' : 'Show the tasks pane'}
+				onclick={() => setCalPane(!ui.calPane)}><PanelRight /></Button
+			>
+		{/if}
 	</header>
 	{#each sources as x (x.kind)}{#if x.banner}<x.banner />{/if}{/each}
 	<div class="flex min-h-0 flex-1">
